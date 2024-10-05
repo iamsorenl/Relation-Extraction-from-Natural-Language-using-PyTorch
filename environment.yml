@@ -1,0 +1,15 @@
+name: Relation-Extraction-from-Natural-Language-using-Pytorch
+channels:
+  - defaults
+  - pytorch
+dependencies:
+  - python=3.11
+  - pandas=2.2
+  - numpy
+  - scikit-learn
+  - pytorch
+  - torchvision
+  - torchaudio
+  - nltk
+  - matplotlib
+  - pip
