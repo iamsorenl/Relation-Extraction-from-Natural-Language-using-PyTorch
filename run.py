@@ -43,5 +43,58 @@ class MLP(nn.Module):
         self.sigmoid = nn.Sigmoid()
     
     def forward(self, x):
-        # Define the forward pass here
+        """
+        Defines the forward pass of the MLP model.
+        
+        Parameters:
+        - x: torch.Tensor, the input tensor with shape (batch_size, input_size)
+        
+        Returns:
+        - torch.Tensor, the output tensor with shape (batch_size, output_size) containing probabilities in [0, 1]
+        """
+
+        # Step 1: Apply the first linear layer (input to hidden layer)
+        # x initially contains the input features, with shape (batch_size, input_size)
+        # The layer1 performs the operation: Z1 = W1 * X + b1
+        # After this step, x will have shape (batch_size, hidden_size)
+        x = self.layer1(x)
+
+        # Step 2: Apply the ReLU activation function
+        # The ReLU function is applied element-wise to x, setting all negative values to 0
+        # ReLU introduces non-linearity, which helps the network learn complex patterns
+        # After this step, x still has shape (batch_size, hidden_size), but with non-negative values
+        x = self.relu(x)
+
+        # Step 3: Apply the second linear layer (hidden layer to output layer)
+        # This layer performs another linear transformation: Z2 = W2 * A1 + b2
+        # This step maps the hidden layer activations to the output space (logits for each label)
+        # After this step, x will have shape (batch_size, output_size)
+        x = self.output(x)
+
+        # Step 4: Apply the Sigmoid activation function
+        # The Sigmoid function is applied to each element of the output vector
+        # Sigmoid squashes the output values to the range [0, 1], converting the raw logits to probabilities
+        # Each value in the final output represents the probability of a particular label being active
+        # After this step, x still has shape (batch_size, output_size), but all values are in [0, 1]
+        x = self.sigmoid(x)
+
+        # Return the output tensor, containing probabilities for each label
         return x
+    
+def load_data(train_file, test_file):
+    """
+    Load the training and test data from CSV files.
+    
+    Parameters:
+    - train_file: str, path to the training data CSV file
+    - test_file: str, path to the test data CSV file
+    
+    Returns:
+    - train_df: pd.DataFrame, the loaded training data
+    - test_df: pd.DataFrame, the loaded test data
+    """
+    # Load the CSV files into pandas DataFrames
+    train_df = pd.read_csv(train_file)
+    test_df = pd.read_csv(test_file)
+    
+    return train_df, test_df
