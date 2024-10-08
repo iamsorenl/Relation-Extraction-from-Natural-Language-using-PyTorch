@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.preprocessing import MultiLabelBinarizer
+from sklearn.model_selection import train_test_split
 
 # define hyperparameter
 hidden_size = 128
@@ -98,3 +99,65 @@ def load_data(train_file, test_file):
     test_df = pd.read_csv(test_file)
     
     return train_df, test_df
+
+def split_data(train_df, test_size=0.2, val_size=0.2, random_state=42):
+    """
+    Split the data into training, validation, and test sets.
+    
+    Parameters:
+    - train_df: pd.DataFrame, the loaded dataset
+    - test_size: float, the proportion of the data to be used as the test set
+    - val_size: float, the proportion of the remaining train set to be used as validation
+    - random_state: int, seed for reproducibility
+    
+    Returns:
+    - train_set: pd.DataFrame, training data
+    - val_set: pd.DataFrame, validation data
+    - test_set: pd.DataFrame, test data
+    """
+    # First, split into train+validation and test
+    train_val_set, test_set = train_test_split(train_df, test_size=test_size, random_state=random_state)
+
+    # Then, split the remaining train+validation set into training and validation
+    train_set, val_set = train_test_split(train_val_set, test_size=val_size, random_state=random_state)
+    
+    return train_set, val_set, test_set
+
+def preprocess_data(train_set, val_set, test_set):
+    """
+    Preprocesses the text and labels for the model.
+    
+    Parameters:
+    - train_set: pd.DataFrame, the training data
+    - val_set: pd.DataFrame, the validation data
+    - test_set: pd.DataFrame, the test data
+    
+    Returns:
+    - X_train: Bag-of-Words representation of the training set
+    - X_val: Bag-of-Words representation of the validation set
+    - X_test: Bag-of-Words representation of the test set
+    - y_train: Binary label matrix for the training set
+    - y_val: Binary label matrix for the validation set
+    - y_test: Binary label matrix for the test set
+    - mlb: MultiLabelBinarizer instance fitted on the training data
+    """
+    
+    # Step 1: Preprocess the text using Bag-of-Words
+    vectorizer = CountVectorizer()
+    X_train = vectorizer.fit_transform(train_set['UTTERANCES'])
+    X_val = vectorizer.transform(val_set['UTTERANCES'])
+    X_test = vectorizer.transform(test_set['UTTERANCES'])
+    
+    # Step 2: Preprocess the labels using MultiLabelBinarizer
+    mlb = MultiLabelBinarizer()
+    
+    # Fit the binarizer only on the training labels
+    train_labels = train_set['CORE RELATIONS'].apply(lambda x: sorted(x.split()))
+    val_labels = val_set['CORE RELATIONS'].apply(lambda x: sorted(x.split()))
+    test_labels = test_set['CORE RELATIONS'].apply(lambda x: sorted(x.split()))
+    
+    y_train = mlb.fit_transform(train_labels)  # Fit the binarizer on training labels only
+    y_val = mlb.transform(val_labels)  # Transform validation labels
+    y_test = mlb.transform(test_labels)  # Transform test labels
+    
+    return X_train, X_val, X_test, y_train, y_val, y_test, mlb
