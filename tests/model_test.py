@@ -6,7 +6,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Import MLP class from run.py
-from run import MLP
+from models.mlp import MLP
 
 # Step 1: Define the input size, output size, and hidden size for testing
 input_size = 5000  # Example input size (e.g., number of features in a Bag-of-Words or word embeddings)

@@ -6,8 +6,8 @@ import pandas as pd
 # Add the parent directory to the system path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# Now you can import the necessary functions from run.py
-from run import preprocess_data, split_data, load_data
+from data.load_data import split_data
+from data.preprocess import preprocess_data
 
 class TestPreprocessData(unittest.TestCase):
 

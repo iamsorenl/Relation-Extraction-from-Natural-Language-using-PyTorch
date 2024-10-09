@@ -2,11 +2,11 @@ import sys
 import os
 import pandas as pd
 
-# Add the root directory to the Python path so we can import run.py
+# Add the root directory to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Import the load_data and split_data functions from run.py
-from run import load_data, split_data
+from data.load_data import load_data, split_data
 
 # Test the split_data function
 def test_split_data():

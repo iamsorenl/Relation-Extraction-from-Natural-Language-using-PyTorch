@@ -10,8 +10,8 @@ ID,Core Relations
 9,none
 10,movie.subjects
 11,movie.rating
-12,none
-13,movie.directed_by
+12,
+13,
 14,movie.estimated_budget
 15,movie.starring.actor
 16,movie.directed_by
@@ -30,7 +30,7 @@ ID,Core Relations
 29,
 30,movie.language
 31,movie.produced_by
-32,
+32,movie.production_companies
 33,movie.rating
 34,none
 35,movie.directed_by
@@ -65,7 +65,7 @@ ID,Core Relations
 64,movie.produced_by
 65,movie.starring.actor
 66,movie.rating
-67,movie.directed_by movie.starring.actor
+67,movie.directed_by
 68,movie.starring.actor
 69,
 70,movie.directed_by
@@ -106,7 +106,7 @@ ID,Core Relations
 105,movie.directed_by
 106,movie.language
 107,movie.production_companies
-108,none
+108,movie.starring.actor none
 109,movie.produced_by
 110,movie.rating
 111,movie.produced_by
@@ -179,7 +179,7 @@ ID,Core Relations
 178,movie.language
 179,
 180,movie.rating
-181,movie.initial_release_date movie.production_companies
+181,movie.initial_release_date movie.production_companies none
 182,movie.directed_by
 183,movie.starring.actor
 184,movie.initial_release_date
@@ -222,10 +222,10 @@ ID,Core Relations
 221,movie.directed_by
 222,
 223,movie.rating
-224,
+224,movie.directed_by
 225,movie.produced_by
 226,movie.directed_by
-227,movie.subjects
+227,
 228,movie.rating
 229,none
 230,movie.directed_by
@@ -254,10 +254,10 @@ ID,Core Relations
 253,movie.produced_by
 254,movie.starring.actor
 255,movie.initial_release_date
-256,movie.country movie.language
+256,movie.language
 257,movie.rating
 258,movie.directed_by
-259,movie.directed_by
+259,
 260,movie.directed_by
 261,
 262,movie.genre
@@ -268,7 +268,7 @@ ID,Core Relations
 267,
 268,
 269,movie.starring.actor
-270,movie.initial_release_date
+270,movie.initial_release_date movie.rating
 271,
 272,movie.rating
 273,movie.gross_revenue
@@ -330,10 +330,10 @@ ID,Core Relations
 329,movie.directed_by
 330,none
 331,
-332,movie.rating
+332,
 333,
 334,movie.starring.actor
-335,movie.genre
+335,
 336,movie.initial_release_date
 337,movie.language
 338,movie.directed_by
@@ -376,7 +376,7 @@ ID,Core Relations
 375,movie.language
 376,none
 377,
-378,
+378,movie.subjects
 379,
 380,movie.initial_release_date
 381,movie.produced_by
@@ -394,14 +394,14 @@ ID,Core Relations
 393,movie.production_companies
 394,none
 395,movie.language
-396,
+396,movie.initial_release_date
 397,movie.country movie.language
-398,movie.initial_release_date
+398,
 399,movie.starring.actor
 400,movie.directed_by
 401,movie.country
 402,movie.country
-403,movie.rating
+403,movie.initial_release_date movie.rating
 404,movie.estimated_budget
 405,none
 406,movie.directed_by
@@ -420,7 +420,7 @@ ID,Core Relations
 419,movie.estimated_budget
 420,movie.production_companies
 421,movie.starring.actor
-422,
+422,movie.genre
 423,none
 424,movie.starring.actor
 425,none
@@ -437,7 +437,7 @@ ID,Core Relations
 436,movie.starring.actor
 437,movie.country
 438,movie.country movie.language
-439,none
+439,movie.starring.actor none
 440,movie.language
 441,movie.gross_revenue
 442,none
@@ -452,13 +452,13 @@ ID,Core Relations
 451,movie.directed_by
 452,movie.rating
 453,
-454,
+454,movie.language
 455,movie.produced_by
 456,movie.starring.actor
 457,movie.language
 458,movie.country movie.language
 459,movie.produced_by
-460,
+460,movie.produced_by
 461,movie.rating
 462,movie.starring.actor
 463,movie.genre

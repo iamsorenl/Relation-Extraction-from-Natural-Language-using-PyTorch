@@ -6,14 +6,14 @@ import os
 # Add the parent directory to the system path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# Now you can import the necessary functions from run.py
-from run import evaluate_model, initialize_model
+from data.train import evaluate_model
+from initialize.bce_adam import initialize_mlp_bce_adam
 
 class TestEvaluateModel(unittest.TestCase):
     def setUp(self):
         input_size = 500
         output_size = 10
-        self.model, self.criterion, _ = initialize_model(input_size, output_size)
+        self.model, self.criterion, _ = initialize_mlp_bce_adam(input_size, output_size)
         self.device = torch.device('cpu')
     
     def test_evaluate_model(self):

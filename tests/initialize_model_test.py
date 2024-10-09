@@ -6,15 +6,14 @@ import os
 # Add the parent directory to the system path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# Now you can import the necessary functions from run.py
-from run import initialize_model
+from initialize.bce_adam import initialize_mlp_bce_adam
 
 class TestInitializeModel(unittest.TestCase):
     
     def test_initialize_model(self):
         input_size = 500  # Example feature size
         output_size = 10  # Example number of classes
-        model, criterion, optimizer = initialize_model(input_size, output_size)
+        model, criterion, optimizer = initialize_mlp_bce_adam(input_size, output_size)
         
         # Test if model is initialized correctly
         self.assertIsInstance(model, torch.nn.Module)
