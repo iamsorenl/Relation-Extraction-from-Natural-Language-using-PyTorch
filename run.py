@@ -161,3 +161,88 @@ def preprocess_data(train_set, val_set, test_set):
     y_test = mlb.transform(test_labels)  # Transform test labels
     
     return X_train, X_val, X_test, y_train, y_val, y_test, mlb
+
+def initialize_model(input_size, output_size, hidden_size=128, learning_rate=0.001):
+    """
+    Initialize the MLP model, loss function, and optimizer.
+    
+    Parameters:
+    - input_size: int, the number of input features.
+    - output_size: int, the number of output classes (relations).
+    - hidden_size: int, the number of neurons in the hidden layer.
+    - learning_rate: float, learning rate for the optimizer.
+    
+    Returns:
+    - model: The initialized MLP model.
+    - criterion: Loss function (Binary Cross-Entropy Loss).
+    - optimizer: Optimizer (Adam).
+    """
+    # Initialize the model
+    model = MLP(input_size=input_size, output_size=output_size, hidden_size=hidden_size)
+    
+    # Loss function (Binary Cross-Entropy for multi-label classification)
+    criterion = nn.BCELoss()
+    
+    # Optimizer (Adam optimizer)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    
+    return model, criterion, optimizer
+
+def train_one_epoch(model, criterion, optimizer, X_train, y_train, device):
+    """
+    Train the model for one epoch.
+    
+    Parameters:
+    - model: The MLP model.
+    - criterion: The loss function (BCELoss).
+    - optimizer: The optimizer (Adam).
+    - X_train: Training data (features as PyTorch tensor).
+    - y_train: Training labels (as PyTorch tensor).
+    - device: The device (CPU or GPU) to run the model on.
+    
+    Returns:
+    - loss_value: The average loss for the epoch.
+    """
+    # Set model to training mode
+    model.train()
+    
+    # Move data to the device
+    X_train, y_train = X_train.to(device), y_train.to(device)
+    
+    # Forward pass
+    outputs = model(X_train)
+    loss = criterion(outputs, y_train)
+    
+    # Backward pass and optimization
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+    
+    return loss.item()
+
+def evaluate_model(model, criterion, X_val, y_val, device):
+    """
+    Evaluate the model on the validation set.
+    
+    Parameters:
+    - model: The MLP model.
+    - criterion: The loss function (BCELoss).
+    - X_val: Validation data (features as PyTorch tensor).
+    - y_val: Validation labels (as PyTorch tensor).
+    - device: The device (CPU or GPU) to run the model on.
+    
+    Returns:
+    - val_loss: The validation loss.
+    """
+    # Set model to evaluation mode
+    model.eval()
+    
+    # Move data to the device
+    X_val, y_val = X_val.to(device), y_val.to(device)
+    
+    with torch.no_grad():
+        # Forward pass
+        val_outputs = model(X_val)
+        val_loss = criterion(val_outputs, y_val)
+    
+    return val_loss.item()
