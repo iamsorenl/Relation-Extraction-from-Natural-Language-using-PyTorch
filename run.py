@@ -246,3 +246,33 @@ def evaluate_model(model, criterion, X_val, y_val, device):
         val_loss = criterion(val_outputs, y_val)
     
     return val_loss.item()
+
+def train_model(model, criterion, optimizer, X_train, y_train, X_val, y_val, device, num_epochs=50):
+    """
+    Train the model over multiple epochs, evaluating on the validation set after each epoch.
+    
+    Parameters:
+    - model: The MLP model.
+    - criterion: Loss function (BCELoss).
+    - optimizer: Optimizer (Adam).
+    - X_train: Training data (features as PyTorch tensor).
+    - y_train: Training labels (as PyTorch tensor).
+    - X_val: Validation data (features as PyTorch tensor).
+    - y_val: Validation labels (as PyTorch tensor).
+    - device: The device (CPU or GPU) to run the model on.
+    - num_epochs: int, number of epochs to train for.
+    
+    Returns:
+    - model: The trained model.
+    """
+    for epoch in range(num_epochs):
+        # Train for one epoch
+        loss = train_one_epoch(model, criterion, optimizer, X_train, y_train, device)
+        
+        # Evaluate on validation set
+        val_loss = evaluate_model(model, criterion, X_val, y_val, device)
+        
+        # Print progress
+        print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {loss:.4f}, Validation Loss: {val_loss:.4f}")
+    
+    return model
