@@ -38,4 +38,4 @@ def preprocess_data(train_set, val_set, test_set):
     y_val = mlb.transform(val_labels)  # Transform validation labels
     y_test = mlb.transform(test_labels)  # Transform test labels
     
-    return X_train, X_val, X_test, y_train, y_val, y_test, mlb
+    return X_train, X_val, X_test, y_train, y_val, y_test, vectorizer, mlb

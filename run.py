@@ -1,10 +1,11 @@
 import sys
 import torch
-from models.mlp import MLP
+import pandas as pd
 from data.load_split_data import load_and_split_data
 from data.preprocess import preprocess_data
 from data.train_model import train_model
 from data.evaluate_model import evaluate_model, evaluate_accuracy
+from data.submission import create_submission_file
 from initialize.bce_adam import initialize_mlp_bce_adam
 
 def main(train_file, test_file, num_epochs=450, hidden_size=128, learning_rate=0.001):
@@ -26,7 +27,7 @@ def main(train_file, test_file, num_epochs=450, hidden_size=128, learning_rate=0
     # print(f"Test set size (split from training data): {len(test_set)}")
 
     # Step 2: Preprocess the data
-    X_train, X_val, X_test, y_train, y_val, y_test, mlb = preprocess_data(train_set, val_set, test_set)
+    X_train, X_val, X_test, y_train, y_val, y_test, vectorizer, mlb = preprocess_data(train_set, val_set, test_set)
 
     # Convert the data to PyTorch tensors
     X_train = torch.tensor(X_train.toarray(), dtype=torch.float32)
@@ -52,6 +53,31 @@ def main(train_file, test_file, num_epochs=450, hidden_size=128, learning_rate=0
     # Step 6: Evaluate accuracy on the test set (test portion split from training data)
     test_accuracy = evaluate_accuracy(trained_model, X_test, y_test)
     print(f"Test Accuracy: {test_accuracy:.4f}")
+
+    # Step 7: Preprocess test file for submission
+    # Load the test file
+    test_df = pd.read_csv(test_file)
+    # Transform the test data using the fitted vectorizer
+    X_test_submission = vectorizer.transform(test_df['UTTERANCES'])
+    # Convert the test submission data to PyTorch tensors
+    X_test_submission_tensor = torch.tensor(X_test_submission.toarray(), dtype=torch.float32)
+
+    # Step 8: Create a submission file
+    trained_model.eval()
+    with torch.no_grad():
+        outputs = trained_model(X_test_submission_tensor)
+        predictions = (outputs >= 0.5).float()
+        predicted_labels = mlb.inverse_transform(predictions.cpu().numpy())
+
+    # Now create the submission DataFrame
+    submission = pd.DataFrame({
+        'ID': range(len(predicted_labels)),
+        'Core Relations': [' '.join(labels) if labels else '' for labels in predicted_labels]
+    })
+    
+    # Save the submission DataFrame to a CSV file
+    submission.to_csv('submission.csv', index=False)
+    print("Submission file saved to submission.csv")
 
 if __name__ == "__main__":
     # Example usage: python run.py hw1_train.csv hw1_test.csv

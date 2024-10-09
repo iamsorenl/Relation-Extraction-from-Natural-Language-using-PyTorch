@@ -15,9 +15,6 @@ def create_submission_file(model, X_test, mlb, output_file='submission.csv', thr
     # Set the model to evaluation mode
     model.eval()
     
-    # Move the test data to the CPU for processing (if on GPU)
-    X_test = X_test.cpu()
-    
     with torch.no_grad():  # Disable gradient computation
         # Perform the forward pass to get predictions
         outputs = model(X_test)
@@ -28,7 +25,7 @@ def create_submission_file(model, X_test, mlb, output_file='submission.csv', thr
     
     # Create a DataFrame for submission
     submission = pd.DataFrame({
-        'ID': range(1, len(predicted_labels) + 1),  # Create an ID column
+        'ID': range(len(predicted_labels)),  # Create an ID column
         'Core Relations': [' '.join(labels) if labels else '' for labels in predicted_labels]  # Join labels
     })
     
