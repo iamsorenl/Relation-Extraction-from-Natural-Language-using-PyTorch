@@ -276,3 +276,136 @@ def train_model(model, criterion, optimizer, X_train, y_train, X_val, y_val, dev
         print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {loss:.4f}, Validation Loss: {val_loss:.4f}")
     
     return model
+
+def evaluate_accuracy(model, X_test, y_test, device, threshold=0.5):
+    """
+    Evaluate the accuracy of the model on the test data.
+    
+    Parameters:
+    - model: The trained MLP model.
+    - X_test: Test data (features as PyTorch tensor).
+    - y_test: Test labels (as PyTorch tensor).
+    - device: The device (CPU or GPU) to run the model on.
+    - threshold: Threshold to convert predicted probabilities to binary labels.
+    
+    Returns:
+    - accuracy: The accuracy of the model on the test set.
+    """
+    # Set the model to evaluation mode
+    model.eval()
+    
+    # Move data to the device
+    X_test, y_test = X_test.to(device), y_test.to(device)
+    
+    with torch.no_grad():
+        # Forward pass to get predictions
+        outputs = model(X_test)
+        # Convert probabilities to binary predictions using the threshold
+        predictions = (outputs >= threshold).float()
+        # Calculate the number of correct predictions
+        correct = (predictions == y_test).float().sum()
+        # Calculate accuracy
+        accuracy = correct / y_test.numel()
+    
+    return accuracy.item()
+
+def create_submission_file(model, X_test, mlb, output_file='submission.csv', threshold=0.5):
+    """
+    Create a submission file for Kaggle.
+    
+    Parameters:
+    - model: The trained MLP model.
+    - X_test: Test data (features as PyTorch tensor).
+    - mlb: MultiLabelBinarizer used for transforming labels.
+    - output_file: str, the name of the submission file to create.
+    - threshold: float, the threshold for converting predicted probabilities to binary labels.
+    """
+    # Set the model to evaluation mode
+    model.eval()
+    
+    # Move data to the CPU for processing
+    X_test = X_test.cpu()
+    
+    with torch.no_grad():
+        # Forward pass to get predictions
+        outputs = model(X_test)
+        # Convert probabilities to binary predictions using the threshold
+        predictions = (outputs >= threshold).float()
+        # Inverse transform to get the original label format
+        predicted_labels = mlb.inverse_transform(predictions.cpu().numpy())
+    
+    # Create a DataFrame for submission
+    submission = pd.DataFrame({
+        'ID': range(1, len(predicted_labels) + 1),
+        'Core Relations': [' '.join(labels) if labels else '' for labels in predicted_labels]
+    })
+    
+    # Save the submission file
+    submission.to_csv(output_file, index=False)
+    print(f"Submission file saved to {output_file}")
+
+def main(train_file, test_file, num_epochs=500, hidden_size=128, learning_rate=0.001):
+    """
+    Main function to run the training pipeline.
+
+    Parameters:
+    - train_file: str, path to the training data CSV file.
+    - test_file: str, path to the test data CSV file.
+    - num_epochs: int, the number of epochs to train the model.
+    - hidden_size: int, the number of neurons in the hidden layer.
+    - learning_rate: float, the learning rate for the optimizer.
+    """
+    # Set device (use GPU if available)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"Using device: {device}")
+
+    # Step 1: Load and split the data
+    train_df, test_df = load_data(train_file, test_file)
+    train_set, val_set, test_set = split_data(train_df)
+
+    # Step 2: Preprocess the data
+    X_train, X_val, X_test, y_train, y_val, y_test, mlb = preprocess_data(train_set, val_set, test_set)
+
+    # Convert data to PyTorch tensors
+    X_train = torch.tensor(X_train.toarray(), dtype=torch.float32)
+    X_val = torch.tensor(X_val.toarray(), dtype=torch.float32)
+    y_train = torch.tensor(y_train, dtype=torch.float32)
+    y_val = torch.tensor(y_val, dtype=torch.float32)
+
+    # Step 3: Initialize the model
+    input_size = X_train.shape[1]
+    output_size = y_train.shape[1]
+    model, criterion, optimizer = initialize_model(input_size, output_size, hidden_size, learning_rate)
+
+    # Move model to the device
+    model.to(device)
+
+    # Step 4: Train the model
+    model = train_model(model, criterion, optimizer, X_train, y_train, X_val, y_val, device, num_epochs)
+
+    # Step 5: Evaluate the model on the test set
+    X_test_tensor = torch.tensor(X_test.toarray(), dtype=torch.float32).to(device)
+    y_test = torch.tensor(y_test, dtype=torch.float32).to(device)
+    test_loss = evaluate_model(model, criterion, X_test_tensor, y_test, device)
+    print(f"Test Loss: {test_loss:.4f}")
+
+    # Step 6: Evaluate accuracy on the test set
+    test_accuracy = evaluate_accuracy(model, X_test_tensor, y_test, device)
+    print(f"Test Accuracy: {test_accuracy:.4f}")
+
+    # Step 7: Create a submission file
+    create_submission_file(model, X_test_tensor, mlb, output_file='submission.csv')
+
+    # Step 8: Save the trained model
+    torch.save(model.state_dict(), 'trained_model.pth')
+    print("Model saved to 'trained_model.pth'.")
+
+if __name__ == "__main__":
+    # Example usage: python run.py hw1_train.csv hw1_test.csv
+    if len(sys.argv) != 3:
+        print("Usage: python run.py <train_data> <test_data>")
+        sys.exit(1)
+    
+    train_file = sys.argv[1]
+    test_file = sys.argv[2]
+    main(train_file, test_file)
