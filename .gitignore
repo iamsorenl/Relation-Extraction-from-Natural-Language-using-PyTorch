@@ -10,7 +10,6 @@ env/
 checkpoints/
 *.h5
 *.ckpt
-data/
 
 # Ignore macOS system files
 .DS_Store
