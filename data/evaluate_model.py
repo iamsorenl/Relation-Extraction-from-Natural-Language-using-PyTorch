@@ -18,7 +18,7 @@ def evaluate_model(model, criterion, X_val, y_val):
     model.eval()
     
     with torch.no_grad():  # Disable gradient computation
-        # Perform the forward pass to compute predictions
+        # Perform the forward pass to the compute predictions
         val_outputs = model(X_val)
         val_loss = criterion(val_outputs, y_val)  # Calculate validation loss
     
