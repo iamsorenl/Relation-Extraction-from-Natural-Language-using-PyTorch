@@ -5,7 +5,6 @@ from data.load_split_data import load_and_split_data
 from data.preprocess import preprocess_data
 from data.train_model import train_model
 from data.evaluate_model import evaluate_model, evaluate_accuracy
-from data.submission import create_submission_file
 from initialize.bce_adam import initialize_mlp_bce_adam
 
 def main(train_file, test_file, num_epochs=450, hidden_size=128, learning_rate=0.001):
@@ -22,9 +21,6 @@ def main(train_file, test_file, num_epochs=450, hidden_size=128, learning_rate=0
 
     # Step 1: Load and split the training data into training, validation, and test sets
     train_set, val_set, test_set = load_and_split_data(train_file)
-    # print(f"Training set size: {len(train_set)}")
-    # print(f"Validation set size: {len(val_set)}")
-    # print(f"Test set size (split from training data): {len(test_set)}")
 
     # Step 2: Preprocess the data
     X_train, X_val, X_test, y_train, y_val, y_test, vectorizer, mlb = preprocess_data(train_set, val_set, test_set)
@@ -69,7 +65,7 @@ def main(train_file, test_file, num_epochs=450, hidden_size=128, learning_rate=0
         predictions = (outputs >= 0.5).float()
         predicted_labels = mlb.inverse_transform(predictions.cpu().numpy())
 
-    # Now create the submission DataFrame
+    # Create the submission DataFrame
     submission = pd.DataFrame({
         'ID': range(len(predicted_labels)),
         'Core Relations': [' '.join(labels) if labels else '' for labels in predicted_labels]
