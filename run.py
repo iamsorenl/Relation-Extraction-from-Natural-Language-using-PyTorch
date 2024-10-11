@@ -57,12 +57,16 @@ def main(train_file, test_file, num_epochs=30, hidden_size=128, learning_rate=0.
     test_loss = evaluate_model(trained_model, criterion, X_test, y_test)
     print(f"Test Loss: {test_loss:.4f}")
 
-    # Step 6: Evaluate accuracy on the test set
-    # Calculate and print the accuracy of the model on the test set
+    # Step 6: Evaluate multiple accuracy metrics on the test set
+    # This step evaluates the model's accuracy using three different metrics:
+    # 1. Standard accuracy on the entire test set..
+    # 2. 1-to-1 comparison accuracy, where the predicted labels must match the true labels exactly.
+
+    # Standard accuracy on the entire test set
     test_accuracy = evaluate_accuracy(trained_model, X_test, y_test)
     print(f"Test Accuracy: {test_accuracy:.4f}")
 
-    # Step 7: Compare predicted labels with true labels for the test portion
+    # 1-to-1 comparison of predicted vs. true labels for exact matches
     trained_model.eval()
     with torch.no_grad():
         outputs = trained_model(X_test)
@@ -70,23 +74,17 @@ def main(train_file, test_file, num_epochs=30, hidden_size=128, learning_rate=0.
         predicted_labels = mlb.inverse_transform(predictions.cpu().numpy())
         true_labels = mlb.inverse_transform(y_test.cpu().numpy())
 
-    # 1-to-1 comparison of predicted vs. true labels for each test sample
-    correct_predictions = 0
-    total_samples = len(true_labels)
-    for i in range(total_samples):
-        if set(predicted_labels[i]) == set(true_labels[i]):
-            correct_predictions += 1
-
-    comparison_accuracy = correct_predictions / total_samples
+    correct_predictions = sum(set(predicted_labels[i]) == set(true_labels[i]) for i in range(len(true_labels)))
+    comparison_accuracy = correct_predictions / len(true_labels)
     print(f"1-to-1 Comparison Accuracy: {comparison_accuracy:.4f}")
 
-    # Step 8: Preprocess the actual test file (from the test_file parameter) for submission
+    # Step 7: Preprocess the actual test file (from the test_file parameter) for submission
     # The test file contains the actual data to make predictions on for creating a submission
     test_df = pd.read_csv(test_file)  # Load the test file into a DataFrame
     X_test_submission = vectorizer.transform(test_df['UTTERANCES'])  # Use the fitted vectorizer to transform the data
     X_test_submission_tensor = torch.tensor(X_test_submission.toarray(), dtype=torch.float32)  # Convert to tensor
 
-    # Step 9: Generate predictions for the test file and create a submission file
+    # Step 8: Generate predictions for the test file and create a submission file
     # Perform predictions on the test file data and create a DataFrame for submission
     trained_model.eval()
     with torch.no_grad():
