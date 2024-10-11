@@ -1,13 +1,15 @@
 import sys
 import torch
+import torch.nn as nn
 import pandas as pd
+from models.mlp import MLP
 from data.load_split_data import load_and_split_data
 from data.preprocess import preprocess_data
 from data.train_model import train_model
 from data.evaluate_model import evaluate_model, evaluate_accuracy
 from initialize.bce_adam import initialize_mlp_bce_adam
 
-def main(train_file, test_file, num_epochs=450, hidden_size=128, learning_rate=0.001):
+def main(train_file, test_file, num_epochs=350, hidden_size=128, learning_rate=0.001):
     """
     Main function to run the training pipeline.
 
@@ -34,10 +36,12 @@ def main(train_file, test_file, num_epochs=450, hidden_size=128, learning_rate=0
     y_test = torch.tensor(y_test, dtype=torch.float32)
 
     # Step 3: Initialize the model, loss function, and optimizer
-    input_size = X_train.shape[1]  # Number of features
-    output_size = y_train.shape[1]  # Number of labels
-    # Initialize the MLP model, loss function (BCELoss), and optimizer (Adam)
-    model, criterion, optimizer = initialize_mlp_bce_adam(input_size, output_size, hidden_size, learning_rate) 
+    # The model, loss function (BCELoss), and optimizer (Adam) are created directly here
+    input_size = X_train.shape[1]  # Number of input features
+    output_size = y_train.shape[1]  # Number of output labels
+    model = MLP(input_size, output_size, hidden_size)  # Initialize the MLP model
+    criterion = nn.BCELoss()  # Use Binary Cross-Entropy Loss for multi-label classification
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)  # Adam optimizer
 
     # Step 4: Train the model
     trained_model = train_model(model, criterion, optimizer, X_train, y_train, X_val, y_val, num_epochs)

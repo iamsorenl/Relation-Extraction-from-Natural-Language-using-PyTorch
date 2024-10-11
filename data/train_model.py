@@ -1,4 +1,3 @@
-import torch
 from data.evaluate_model import evaluate_model
 
 def train_model(model, criterion, optimizer, X_train, y_train, X_val, y_val, num_epochs=50):

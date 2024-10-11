@@ -21,6 +21,7 @@ def initialize_mlp_bce_adam(input_size, output_size, hidden_size=128, learning_r
     model = MLP(input_size=input_size, output_size=output_size, hidden_size=hidden_size)
     
     # Loss function (Binary Cross-Entropy for multi-label classification)
+    # criterion = nn.CrossEntropyLoss()
     criterion = nn.BCELoss()
     
     # Optimizer (Adam optimizer)
