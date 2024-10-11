@@ -8,7 +8,7 @@ from data.preprocess import preprocess_data
 from data.train_model import train_model
 from data.evaluate_model import evaluate_model, evaluate_accuracy
 
-def main(train_file, test_file, num_epochs=350, hidden_size=128, learning_rate=0.001):
+def main(train_file, test_file, num_epochs=30, hidden_size=128, learning_rate=0.001, batch_size=32):
     """
     Main function to run the training pipeline.
 
@@ -48,9 +48,9 @@ def main(train_file, test_file, num_epochs=350, hidden_size=128, learning_rate=0
     criterion = nn.BCELoss()  # Use Binary Cross-Entropy Loss for multi-label classification
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)  # Adam optimizer
 
-    # Step 4: Train the model using the training and validation data
+    # Step 4: Train the model using the training and validation data and batch training
     # The training function will train the model for the specified number of epochs, and monitor validation loss
-    trained_model = train_model(model, criterion, optimizer, X_train, y_train, X_val, y_val, num_epochs)
+    trained_model = train_model(model, criterion, optimizer, X_train, y_train, X_val, y_val, num_epochs, batch_size)
 
     # Step 5: Evaluate the trained model on the test set (split from training data)
     # Evaluate the model's performance using the test set and print the resulting loss
@@ -62,13 +62,31 @@ def main(train_file, test_file, num_epochs=350, hidden_size=128, learning_rate=0
     test_accuracy = evaluate_accuracy(trained_model, X_test, y_test)
     print(f"Test Accuracy: {test_accuracy:.4f}")
 
-    # Step 7: Preprocess the actual test file (from the test_file parameter) for submission
+    # Step 7: Compare predicted labels with true labels for the test portion
+    trained_model.eval()
+    with torch.no_grad():
+        outputs = trained_model(X_test)
+        predictions = (outputs >= 0.5).float()  # Convert probabilities to binary labels
+        predicted_labels = mlb.inverse_transform(predictions.cpu().numpy())
+        true_labels = mlb.inverse_transform(y_test.cpu().numpy())
+
+    # 1-to-1 comparison of predicted vs. true labels for each test sample
+    correct_predictions = 0
+    total_samples = len(true_labels)
+    for i in range(total_samples):
+        if set(predicted_labels[i]) == set(true_labels[i]):
+            correct_predictions += 1
+
+    comparison_accuracy = correct_predictions / total_samples
+    print(f"1-to-1 Comparison Accuracy: {comparison_accuracy:.4f}")
+
+    # Step 8: Preprocess the actual test file (from the test_file parameter) for submission
     # The test file contains the actual data to make predictions on for creating a submission
     test_df = pd.read_csv(test_file)  # Load the test file into a DataFrame
     X_test_submission = vectorizer.transform(test_df['UTTERANCES'])  # Use the fitted vectorizer to transform the data
     X_test_submission_tensor = torch.tensor(X_test_submission.toarray(), dtype=torch.float32)  # Convert to tensor
 
-    # Step 8: Generate predictions for the test file and create a submission file
+    # Step 9: Generate predictions for the test file and create a submission file
     # Perform predictions on the test file data and create a DataFrame for submission
     trained_model.eval()
     with torch.no_grad():
