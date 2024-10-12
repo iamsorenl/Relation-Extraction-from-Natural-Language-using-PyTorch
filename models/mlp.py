@@ -2,14 +2,16 @@ import torch
 import torch.nn as nn
 
 class MLP(nn.Module):
-    def __init__(self, input_size, output_size, hidden_size=128):
+    def __init__(self, input_size, output_size, hidden_size, dropout_prob):
         """
-        Initialize the MLP model with input size, output size, and an adjustable hidden layer size.
+        Initialize the MLP model with input size, output size, an adjustable hidden layer size, 
+        and dropout for regularization.
 
         Parameters:
         - input_size: int, the size of the input vector (e.g., the number of features in your data)
         - output_size: int, the number of output labels (e.g., the number of relations to predict)
-        - hidden_size: int, the number of neurons in the hidden layer (default: 128)
+        - hidden_size: int, the number of neurons in the hidden layer (e.g., 128)
+        - dropout_prob: float, the probability of dropping out neurons during training for regularization
         """
         super(MLP, self).__init__()
 
@@ -24,17 +26,16 @@ class MLP(nn.Module):
         # It introduces non-linearity by outputting max(0, Z1), setting negative values to 0
         self.relu = nn.ReLU()
 
+        # Dropout layer for regularization
+        # Dropout randomly zeroes out elements during training with probability dropout_prob
+        self.dropout = nn.Dropout(dropout_prob)
+
         # Second fully connected layer (hidden layer to output layer)
         # This layer performs another linear transformation: Z2 = W2 * A1 + b2
         # Input: a vector of size (hidden_size,)
         # Output: a vector of size (output_size,)
         self.output = nn.Linear(hidden_size, output_size)
 
-        # Activation function: Sigmoid
-        # This is applied to the final output, converting the logits to probabilities
-        # Sigmoid squashes the output values to the range [0, 1], making them interpretable as probabilities
-        #self.sigmoid = nn.Sigmoid()
-    
     def forward(self, x):
         """
         Defines the forward pass of the MLP model.
@@ -43,7 +44,7 @@ class MLP(nn.Module):
         - x: torch.Tensor, the input tensor with shape (batch_size, input_size)
         
         Returns:
-        - torch.Tensor, the output tensor with shape (batch_size, output_size) containing probabilities in [0, 1]
+        - torch.Tensor, the output tensor with shape (batch_size, output_size)
         """
 
         # Step 1: Apply the first linear layer (input to hidden layer)
@@ -58,18 +59,16 @@ class MLP(nn.Module):
         # After this step, x still has shape (batch_size, hidden_size), but with non-negative values
         x = self.relu(x)
 
-        # Step 3: Apply the second linear layer (hidden layer to output layer)
+        # Step 3: Apply Dropout during training
+        # The dropout layer randomly zeroes out elements during training to prevent overfitting
+        # After this step, x still has shape (batch_size, hidden_size)
+        x = self.dropout(x)
+
+        # Step 4: Apply the second linear layer (hidden layer to output layer)
         # This layer performs another linear transformation: Z2 = W2 * A1 + b2
         # This step maps the hidden layer activations to the output space (logits for each label)
         # After this step, x will have shape (batch_size, output_size)
         x = self.output(x)
 
-        # Step 4: Apply the Sigmoid activation function
-        # The Sigmoid function is applied to each element of the output vector
-        # Sigmoid squashes the output values to the range [0, 1], converting the raw logits to probabilities
-        # Each value in the final output represents the probability of a particular label being active
-        # After this step, x still has shape (batch_size, output_size), but all values are in [0, 1]
-        #x = self.sigmoid(x)
-
-        # Return the output tensor, containing probabilities for each label
+        # Return the output tensor
         return x

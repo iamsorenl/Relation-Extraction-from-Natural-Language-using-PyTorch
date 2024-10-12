@@ -1,110 +1,43 @@
 import sys
-import torch
-import torch.nn as nn
+import spacy
 import pandas as pd
-from models.mlp import MLP
-from data.load_split_data import load_and_split_data
-from data.preprocess import preprocess_data
-from data.train_model import train_model
-from data.evaluate_model import evaluate_model, evaluate_accuracy
+import numpy as np
+from utils.spacy import install_spacy_model, process_spacy_features  # Import from utils/spacy.py
+from utils.kfold import perform_kfold_split  # Import from utils/kfold.py
 
-def main(train_file, test_file, num_epochs=30, hidden_size=128, learning_rate=0.001, batch_size=32):
-    """
-    Main function to run the training pipeline.
+# Overview of Implementation:
+# 1. The input CSV files are loaded into Pandas DataFrames.
+# 2. Stratified K-fold cross-validation is used to create balanced training and validation splits.
+# 3. The script uses spaCy for text processing and feature extraction.
+# 4. Mean-pooling is applied to generate sentence-level embeddings using the word vectors from spaCy.
+# 5. Additional features such as POS tags and Named Entities are extracted.
+# 6. Evaluation metrics such as Accuracy and F1-Score are calculated for each fold.
 
-    Parameters:
-    - train_file: str, path to the training data CSV file.
-    - test_file: str, path to the test data CSV file.
-    - num_epochs: int, the number of epochs to train the model.
-    - hidden_size: int, the number of neurons in the hidden layer.
-    - learning_rate: float, the learning rate for the optimizer.
-    """
+def main(train_file, test_file, num_folds=5, random_state=42, spacy_model_name='en_core_web_md'):
 
-    # Step 1: Load and split the training data into training, validation, and test sets
-    # This function loads the training data and splits it into three sets:
-    # - train_set: For training the model
-    # - val_set: For validation during training
-    # - test_set: Used to evaluate the model after training
-    train_set, val_set, test_set = load_and_split_data(train_file)
+    # Install the spaCy model if it's not available
+    install_spacy_model(spacy_model_name)
 
-    # Step 2: Preprocess the data
-    # Converts the text data into a Bag-of-Words representation and the labels into binary form
-    # Returns the processed training, validation, and test data along with the fitted vectorizer and MultiLabelBinarizer
-    X_train, X_val, X_test, y_train, y_val, y_test, vectorizer, mlb = preprocess_data(train_set, val_set, test_set)
-
-    # Convert the data to PyTorch tensors
-    X_train = torch.tensor(X_train.toarray(), dtype=torch.float32)
-    X_val = torch.tensor(X_val.toarray(), dtype=torch.float32)
-    X_test = torch.tensor(X_test.toarray(), dtype=torch.float32)
-    y_train = torch.tensor(y_train, dtype=torch.float32)
-    y_val = torch.tensor(y_val, dtype=torch.float32)
-    y_test = torch.tensor(y_test, dtype=torch.float32)
-
-    # Step 3: Initialize the model, loss function, and optimizer
-    # The model, loss function (BCELoss) or MultiLabelSoftMarginLoss, and optimizer (Adam) are created directly here
-    input_size = X_train.shape[1]  # Number of input features
-    output_size = y_train.shape[1]  # Number of output labels
-    model = MLP(input_size, output_size, hidden_size)  # Initialize the MLP model
-    #criterion = nn.BCELoss()  # Use Binary Cross-Entropy Loss for multi-label classification
-    criterion = nn.MultiLabelSoftMarginLoss() # Use MultiLabelSoftMarginLoss for multi-label classification
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)  # Adam optimizer
-
-    # Step 4: Train the model using the training and validation data and batch training
-    # The training function will train the model for the specified number of epochs, and monitor validation loss
-    trained_model = train_model(model, criterion, optimizer, X_train, y_train, X_val, y_val, num_epochs, batch_size, mlb)
-
-    # Step 5: Evaluate the trained model on the test set (split from training data)
-    # Evaluate the model's performance using the test set and print the resulting loss
-    test_loss = evaluate_model(trained_model, criterion, X_test, y_test)
-    print(f"Test Loss: {test_loss:.4f}")
-
-    # Step 6: Evaluate multiple accuracy metrics on the test set
-    # This step evaluates the model's accuracy using three different metrics:
-    # 1. Standard accuracy on the entire test set..
-    # 2. 1-to-1 comparison accuracy, where the predicted labels must match the true labels exactly.
-
-    # Standard accuracy on the entire test set
-    test_accuracy = evaluate_accuracy(trained_model, X_test, y_test)
-    print(f"Test Accuracy: {test_accuracy:.4f}")
-
-    # 1-to-1 comparison of predicted vs. true labels for exact matches
-    trained_model.eval()
-    with torch.no_grad():
-        outputs = trained_model(X_test)
-        predictions = (outputs >= 0.5).float()  # Convert probabilities to binary labels
-        predicted_labels = mlb.inverse_transform(predictions.cpu().numpy())
-        true_labels = mlb.inverse_transform(y_test.cpu().numpy())
-
-    correct_predictions = sum(set(predicted_labels[i]) == set(true_labels[i]) for i in range(len(true_labels)))
-    comparison_accuracy = correct_predictions / len(true_labels)
-    print(f"1-to-1 Comparison Accuracy: {comparison_accuracy:.4f}")
-
-    # Step 7: Preprocess the actual test file (from the test_file parameter) for submission
-    # The test file contains the actual data to make predictions on for creating a submission
-    test_df = pd.read_csv(test_file)  # Load the test file into a DataFrame
-    X_test_submission = vectorizer.transform(test_df['UTTERANCES'])  # Use the fitted vectorizer to transform the data
-    X_test_submission_tensor = torch.tensor(X_test_submission.toarray(), dtype=torch.float32)  # Convert to tensor
-
-    # Step 8: Generate predictions for the test file and create a submission file
-    # Perform predictions on the test file data and create a DataFrame for submission
-    trained_model.eval()
-    with torch.no_grad():
-        outputs = trained_model(X_test_submission_tensor)
-        predictions = (outputs >= 0.5).float()
-        predicted_labels = mlb.inverse_transform(predictions.cpu().numpy())
-
-    # Create the submission DataFrame
-    submission = pd.DataFrame({
-        'ID': range(len(predicted_labels)),
-        'Core Relations': [' '.join(sorted(labels)) if labels else '' for labels in predicted_labels]
-    })
+    # Load spaCy model
+    nlp = spacy.load('en_core_web_md')
     
-    # Save the submission DataFrame to a CSV file
-    submission.to_csv('submission.csv', index=False)
-    print("Submission file saved to submission.csv")
+    # Load the data into a pandas DataFrame
+    train_df = pd.read_csv(train_file)
+    test_df = pd.read_csv(test_file)
+
+    # Perform K-fold cross-validation on the training set
+    fold_results, label_classes = perform_kfold_split(train_df, nlp, num_folds=num_folds, random_state=random_state)
+
+    # Load the test set and process it
+    X_test, test_pos_tags, test_named_entities = process_spacy_features(test_df['UTTERANCES'], nlp)
+
+    print(f"Processed test data shape: {X_test.shape}")
+    print(f"Sample POS tags from test set: {test_pos_tags[:1]}")
+    print(f"Sample Named Entities from test set: {test_named_entities[:1]}")
+
 
 if __name__ == "__main__":
-    # Example usage: python run.py hw1_train.csv hw1_test.csv
+    # Example usage: python run.py <train_data> <test_data>
     if len(sys.argv) != 3:
         print("Usage: python run.py <train_data> <test_data>")
         sys.exit(1)
