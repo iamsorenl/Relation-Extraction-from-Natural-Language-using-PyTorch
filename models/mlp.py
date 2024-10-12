@@ -33,7 +33,7 @@ class MLP(nn.Module):
         # Activation function: Sigmoid
         # This is applied to the final output, converting the logits to probabilities
         # Sigmoid squashes the output values to the range [0, 1], making them interpretable as probabilities
-        self.sigmoid = nn.Sigmoid()
+        #self.sigmoid = nn.Sigmoid()
     
     def forward(self, x):
         """
@@ -69,7 +69,7 @@ class MLP(nn.Module):
         # Sigmoid squashes the output values to the range [0, 1], converting the raw logits to probabilities
         # Each value in the final output represents the probability of a particular label being active
         # After this step, x still has shape (batch_size, output_size), but all values are in [0, 1]
-        x = self.sigmoid(x)
+        #x = self.sigmoid(x)
 
         # Return the output tensor, containing probabilities for each label
         return x

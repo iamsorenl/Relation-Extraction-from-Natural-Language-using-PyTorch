@@ -41,16 +41,17 @@ def main(train_file, test_file, num_epochs=30, hidden_size=128, learning_rate=0.
     y_test = torch.tensor(y_test, dtype=torch.float32)
 
     # Step 3: Initialize the model, loss function, and optimizer
-    # The model, loss function (BCELoss), and optimizer (Adam) are created directly here
+    # The model, loss function (BCELoss) or MultiLabelSoftMarginLoss, and optimizer (Adam) are created directly here
     input_size = X_train.shape[1]  # Number of input features
     output_size = y_train.shape[1]  # Number of output labels
     model = MLP(input_size, output_size, hidden_size)  # Initialize the MLP model
-    criterion = nn.BCELoss()  # Use Binary Cross-Entropy Loss for multi-label classification
+    #criterion = nn.BCELoss()  # Use Binary Cross-Entropy Loss for multi-label classification
+    criterion = nn.MultiLabelSoftMarginLoss() # Use MultiLabelSoftMarginLoss for multi-label classification
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)  # Adam optimizer
 
     # Step 4: Train the model using the training and validation data and batch training
     # The training function will train the model for the specified number of epochs, and monitor validation loss
-    trained_model = train_model(model, criterion, optimizer, X_train, y_train, X_val, y_val, num_epochs, batch_size)
+    trained_model = train_model(model, criterion, optimizer, X_train, y_train, X_val, y_val, num_epochs, batch_size, mlb)
 
     # Step 5: Evaluate the trained model on the test set (split from training data)
     # Evaluate the model's performance using the test set and print the resulting loss
