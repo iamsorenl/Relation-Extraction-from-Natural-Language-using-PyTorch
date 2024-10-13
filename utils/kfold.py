@@ -1,16 +1,20 @@
 from iterstrat.ml_stratifiers import MultilabelStratifiedKFold
 from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.metrics import accuracy_score, f1_score
+import torch
+import torch.nn as nn
+import torch.optim as optim
 from utils.spacy import process_spacy_features
+from models.mlp_model import MLP
 
 def process_labels(labels):
     """Converts the CORE RELATIONS into multi-hot encoding for multi-label classification."""
     mlb = MultiLabelBinarizer()
-    processed_labels = mlb.fit_transform(labels.str.split())  # Assuming CORE RELATIONS are space-separated
+    processed_labels = mlb.fit_transform(labels.str.split())
     return processed_labels, mlb.classes_
 
 
-def perform_kfold_split(train_df, nlp, num_folds, random_state):
+def perform_kfold_split(train_df, nlp, num_folds, random_state, input_size, output_size):
     """Perform Multilabel Stratified K-fold cross-validation."""
 
     # Convert CORE RELATIONS to multi-label format
@@ -36,6 +40,44 @@ def perform_kfold_split(train_df, nlp, num_folds, random_state):
 
         print(f"Processed training data shape for Fold {fold_idx}: {X_train.shape}")
         print(f"Processed validation data shape for Fold {fold_idx}: {X_val.shape}")
+
+        # Convert data to PyTorch tensors
+        X_train_tensor = torch.tensor(X_train, dtype=torch.float32)
+        y_train_tensor = torch.tensor(y_train, dtype=torch.float32)
+        X_val_tensor = torch.tensor(X_val, dtype=torch.float32)
+        y_val_tensor = torch.tensor(y_val, dtype=torch.float32)
+
+        # Initialize the MLP model for this fold
+        model = MLP(input_size=input_size, output_size=output_size)
+
+        # Define loss function and optimizer
+        criterion = nn.MultiLabelSoftMarginLoss()  # For multi-label classification
+        optimizer = optim.Adam(model.parameters(), lr=0.001)
+
+        # Train the MLP model
+        num_epochs = 100 
+        for epoch in range(num_epochs):
+            model.train()
+            optimizer.zero_grad()
+            outputs = model(X_train_tensor)
+            loss = criterion(outputs, y_train_tensor)
+            loss.backward()
+            optimizer.step()
+
+            if (epoch + 1) % 2 == 0:
+                print(f'Fold {fold_idx}, Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}')
+
+        # Evaluate the model on validation set
+        model.eval()
+        with torch.no_grad():
+            y_pred_tensor = model(X_val_tensor)
+            y_pred = (y_pred_tensor > 0.5).float()  # Convert logits to binary predictions
+
+            # Calculate accuracy and F1-score
+            accuracy = accuracy_score(y_val, y_pred.cpu().numpy())
+            f1 = f1_score(y_val, y_pred.cpu().numpy(), average='micro')
+
+            print(f"Fold {fold_idx} - Accuracy: {accuracy:.4f}, F1-Score: {f1:.4f}")
 
         # Store the processed data for this fold
         fold_results.append({

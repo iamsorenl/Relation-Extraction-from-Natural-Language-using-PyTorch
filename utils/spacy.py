@@ -10,7 +10,7 @@ def install_spacy_model(spacy_model_name):
         nlp = spacy.load(spacy_model_name)
     except OSError:
         print(f"SpaCy model {spacy_model_name} not found. Installing...")
-        subprocess.run([sys.executable, "-m", "spacy", "download", "en_core_web_md"])
+        subprocess.run([sys.executable, "-m", "spacy", "download", spacy_model_name])
         nlp = spacy.load(spacy_model_name)  # Load the model after installation
     return nlp
 
