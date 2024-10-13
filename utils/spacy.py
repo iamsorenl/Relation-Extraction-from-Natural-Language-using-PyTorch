@@ -22,52 +22,52 @@ def process_spacy_features(text_data, nlp, max_length=None):
     pos_tags = []
     dep_relations = []
 
-    # Get unique POS and dependency tags from spaCy
-    pos_tag_map = {pos: i for i, pos in enumerate(nlp.pipe_labels['tagger'])}
-    dep_rel_map = {dep: i for i, dep in enumerate(nlp.pipe_labels['parser'])}
-    
     # Process each document using spaCy's pipeline
     for doc in nlp.pipe(text_data):
-        embeddings.append(torch.tensor(doc.vector))  # Convert embeddings to torch tensor
-
-        # Convert POS tags and dependency relations to integer mappings
-        pos_tags.append([pos_tag_map[token.pos_] for token in doc])
-        dep_relations.append([dep_rel_map[token.dep_] for token in doc])
+        embeddings.append(doc.vector)  # Mean-pooled vector for embeddings
+        pos_tags.append([token.pos_ for token in doc])  # POS tags
+        dep_relations.append([token.dep_ for token in doc])  # Dependency relations
 
     # Set max_length to the longest sequence if not provided
     if max_length is None:
         max_length = max(len(seq) for seq in pos_tags)
 
+    # Convert POS tags and dependency relations to numeric values for one-hot encoding
+    pos_encoded, dep_encoded = one_hot_encode_features(pos_tags, dep_relations, nlp)
+
     # Pad POS tags and dependency relations
-    pos_tags_padded = pad_sequence([torch.tensor(seq) for seq in pos_tags], batch_first=True, padding_value=0)
-    dep_relations_padded = pad_sequence([torch.tensor(seq) for seq in dep_relations], batch_first=True, padding_value=0)
+    pos_tags_padded = pad_sequence([torch.tensor(seq) for seq in pos_encoded], batch_first=True, padding_value=0)
+    dep_relations_padded = pad_sequence([torch.tensor(seq) for seq in dep_encoded], batch_first=True, padding_value=0)
 
-    # One-hot encode POS tags and dependency relations
-    pos_encoded, dep_encoded = one_hot_encode_features(pos_tags_padded, dep_relations_padded)
+    # Repeat the embedding vector for each token (to match the sequence length)
+    embeddings = torch.tensor(embeddings).unsqueeze(1).repeat(1, max_length, 1)  # Shape: (batch_size, max_length, embedding_dim)
 
-    # Ensure embeddings are repeated across the same max_length as POS tags and dependencies
-    embeddings_padded = [emb.unsqueeze(0).repeat(max_length, 1) for emb in embeddings]
+    # Concatenate embeddings with encoded and padded POS tags and dependencies
+    combined_features = torch.cat([embeddings, pos_tags_padded, dep_relations_padded], dim=2)
 
-    # Concatenate embeddings, one-hot encoded POS tags, and dependencies
-    combined_features = [torch.cat([emb, pos_enc, dep_enc], dim=1) 
-                         for emb, pos_enc, dep_enc in zip(embeddings_padded, pos_encoded, dep_encoded)]
+    return combined_features
 
-    return torch.stack(combined_features)
 
-def one_hot_encode_features(pos_tags, dep_relations):
-    """One-hot encode POS tags and dependency relations."""
-    pos_tags_flat = pos_tags.view(-1).cpu().numpy()  # Flatten the tensor
-    dep_relations_flat = dep_relations.view(-1).cpu().numpy()  # Flatten the tensor
+def one_hot_encode_features(pos_tags, dep_relations, nlp):
+    """One-hot encode POS tags and dependency relations sentence by sentence."""
+    # Fetch available POS and dependency labels from spaCy
+    pos_labels = nlp.pipe_labels['tagger']  # Part-of-speech tag labels
+    dep_labels = nlp.pipe_labels['parser']  # Dependency relation labels
 
-    # One-hot encode the POS tags and dependency relations
-    pos_encoder = OneHotEncoder(sparse_output=False, handle_unknown='ignore')
-    dep_encoder = OneHotEncoder(sparse_output=False, handle_unknown='ignore')
+    # Create OneHotEncoder for POS tags and dependency relations
+    pos_encoder = OneHotEncoder(categories=[pos_labels], sparse_output=False, handle_unknown='ignore')
+    dep_encoder = OneHotEncoder(categories=[dep_labels], sparse_output=False, handle_unknown='ignore')
 
-    pos_encoded = pos_encoder.fit_transform(np.array(pos_tags_flat).reshape(-1, 1))
-    dep_encoded = dep_encoder.fit_transform(np.array(dep_relations_flat).reshape(-1, 1))
+    pos_encoded_sentences = []
+    dep_encoded_sentences = []
 
-    # Reshape the one-hot encoded arrays back to the original structure
-    pos_encoded_tensor = torch.tensor(pos_encoded).view(pos_tags.size(0), pos_tags.size(1), -1)
-    dep_encoded_tensor = torch.tensor(dep_encoded).view(dep_relations.size(0), dep_relations.size(1), -1)
+    # Encode POS tags and dependencies for each sentence separately
+    for pos_seq, dep_seq in zip(pos_tags, dep_relations):
+        pos_encoded = pos_encoder.fit_transform(np.array(pos_seq).reshape(-1, 1))  # One-hot encode POS tags for each sentence
+        dep_encoded = dep_encoder.fit_transform(np.array(dep_seq).reshape(-1, 1))  # One-hot encode dependency relations for each sentence
 
-    return pos_encoded_tensor, dep_encoded_tensor
+        # Append encoded sentences back to list
+        pos_encoded_sentences.append(pos_encoded)
+        dep_encoded_sentences.append(dep_encoded)
+
+    return pos_encoded_sentences, dep_encoded_sentences  # Return lists of encoded sequences for each sentence
