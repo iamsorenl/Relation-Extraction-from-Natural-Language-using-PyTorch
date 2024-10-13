@@ -13,32 +13,26 @@ from utils.kfold import perform_kfold_split  # Import from utils/kfold.py
 # 5. Additional features such as POS tags and Named Entities are extracted.
 # 6. Evaluation metrics such as Accuracy and F1-Score are calculated for each fold.
 
-def main(train_file, test_file, num_folds=5, random_state=42, spacy_model_name='en_core_web_trf'):
+def main(train_file, test_file, num_folds=5, random_state=42, spacy_model_name='en_core_web_md'):
 
     # Install the spaCy model if it's not available
     install_spacy_model(spacy_model_name)
 
     # Load spaCy model
     nlp = spacy.load(spacy_model_name)
+
+    # Debug: Check the pipeline components
+    print(f"Pipeline components: {nlp.pipe_names}")
     
     # Load the data into a pandas DataFrame
     train_df = pd.read_csv(train_file)
-    test_df = pd.read_csv(test_file)
 
     # Set input size and output size for the MLP model
-    input_size = 300  # Example input size (this should match the size of your embeddings)
+    input_size = nlp.vocab.vectors_length # Should resolve to 300 for static embeddings
     output_size = len(train_df['CORE RELATIONS'].str.split().explode().unique())  # Number of unique relations
 
-    # Perform K-fold cross-validation on the training set
-    fold_results, label_classes = perform_kfold_split(train_df, nlp, num_folds=num_folds, random_state=random_state, input_size=input_size, output_size=output_size)
-
-
-    # Load the test set and process it
-    X_test, test_pos_tags, test_named_entities = process_spacy_features(test_df['UTTERANCES'], nlp)
-
-    print(f"Processed test data shape: {X_test.shape}")
-    print(f"Sample POS tags from test set: {test_pos_tags[:1]}")
-    print(f"Sample Named Entities from test set: {test_named_entities[:1]}")
+    # Perform K-fold cross-validation on the training set and get the trained model
+    trained_model = perform_kfold_split(train_df, nlp, num_folds=num_folds, random_state=random_state, input_size=input_size, output_size=output_size)
 
 
 if __name__ == "__main__":

@@ -23,23 +23,26 @@ def perform_kfold_split(train_df, nlp, num_folds, random_state, input_size, outp
     # Initialize the Multilabel Stratified K-Fold object
     mskf = MultilabelStratifiedKFold(n_splits=num_folds, shuffle=True, random_state=random_state)
     
-    fold_results = []
     fold_idx = 1
-    
+    trained_model = None
+    max_length = None  # Placeholder for the maximum sequence length for padding
+
     # Perform the K-Fold split
     for train_index, val_index in mskf.split(train_df, y):
-        print(f"Processing Fold {fold_idx}/{num_folds}")
+        print(f"\n--- Processing Fold {fold_idx}/{num_folds} ---")
 
         # Split the data into training and validation sets for this fold
-        train_set, val_set = train_df.iloc[train_index], train_df.iloc[val_index]
+        train_set = train_df.iloc[train_index]
+        val_set = train_df.iloc[val_index]
         y_train, y_val = y[train_index], y[val_index]
 
-        # Convert text to embeddings and extract additional features
-        X_train, train_pos_tags, train_named_entities = process_spacy_features(train_set['UTTERANCES'], nlp)
-        X_val, val_pos_tags, val_named_entities = process_spacy_features(val_set['UTTERANCES'], nlp)
+        # Set max_length for padding based on the training set
+        if max_length is None:
+            max_length = max(len(seq) for seq in train_set['UTTERANCES'].apply(lambda x: nlp(x)))
 
-        print(f"Processed training data shape for Fold {fold_idx}: {X_train.shape}")
-        print(f"Processed validation data shape for Fold {fold_idx}: {X_val.shape}")
+        # Process spaCy features for training and validation sets
+        X_train = process_spacy_features(train_set['UTTERANCES'], nlp, max_length=max_length)
+        X_val = process_spacy_features(val_set['UTTERANCES'], nlp, max_length=max_length)
 
         # Convert data to PyTorch tensors
         X_train_tensor = torch.tensor(X_train, dtype=torch.float32)
@@ -47,15 +50,15 @@ def perform_kfold_split(train_df, nlp, num_folds, random_state, input_size, outp
         X_val_tensor = torch.tensor(X_val, dtype=torch.float32)
         y_val_tensor = torch.tensor(y_val, dtype=torch.float32)
 
-        # Initialize the MLP model for this fold
+        # Initialize the MLP model
         model = MLP(input_size=input_size, output_size=output_size)
 
         # Define loss function and optimizer
-        criterion = nn.MultiLabelSoftMarginLoss()  # For multi-label classification
+        criterion = nn.MultiLabelSoftMarginLoss()
         optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-        # Train the MLP model
-        num_epochs = 100 
+        # Train the model
+        num_epochs = 10
         for epoch in range(num_epochs):
             model.train()
             optimizer.zero_grad()
@@ -70,8 +73,8 @@ def perform_kfold_split(train_df, nlp, num_folds, random_state, input_size, outp
         # Evaluate the model on validation set
         model.eval()
         with torch.no_grad():
-            y_pred_tensor = model(X_val_tensor)
-            y_pred = (y_pred_tensor > 0.5).float()  # Convert logits to binary predictions
+            outputs_val = model(X_val_tensor)
+            y_pred = (outputs_val > 0.5).float()  # Convert logits to binary predictions
 
             # Calculate accuracy and F1-score
             accuracy = accuracy_score(y_val, y_pred.cpu().numpy())
@@ -79,19 +82,10 @@ def perform_kfold_split(train_df, nlp, num_folds, random_state, input_size, outp
 
             print(f"Fold {fold_idx} - Accuracy: {accuracy:.4f}, F1-Score: {f1:.4f}")
 
-        # Store the processed data for this fold
-        fold_results.append({
-            'fold_idx': fold_idx,
-            'X_train': X_train,
-            'X_val': X_val,
-            'y_train': y_train,
-            'y_val': y_val,
-            'train_pos_tags': train_pos_tags,
-            'val_pos_tags': val_pos_tags,
-            'train_named_entities': train_named_entities,
-            'val_named_entities': val_named_entities,
-        })
+        # After the last fold, return the trained model
+        if fold_idx == num_folds:
+            trained_model = model  # You could also store models from each fold if desired
 
         fold_idx += 1
 
-    return fold_results, label_classes  # Return processed data and label classes for each fold
+    return trained_model
