@@ -3,10 +3,7 @@ import spacy
 import pandas as pd
 import numpy as np
 import torch
-from utils.combine_process import process_combined_features
-from utils.glove import load_glove_embeddings
-from utils.ngram import extract_character_ngrams
-from utils.spacy import install_spacy_model  # Import from utils/spacy.py
+from utils.spacy import install_spacy_model, process_spacy_features  # Import from utils/spacy.py
 from utils.kfold import perform_kfold_split  # Import from utils/kfold.py
 
 # Overview of Implementation:
@@ -22,60 +19,42 @@ def get_unique_labels(train_df):
     label_classes = sorted(set(train_df['CORE RELATIONS'].str.split().explode().unique()))
     return label_classes
 
-def main(train_file, test_file, num_folds=5, random_state=42, spacy_model_name='en_core_web_md', glove_path='glove-wiki-gigaword-300'):
+def main(train_file, test_file, num_folds=5, random_state=42, spacy_model_name='en_core_web_md'):
 
-    # Install SpaCy model and load GloVe embeddings or load them if they are already installed
-    nlp = install_spacy_model(spacy_model_name)
-    glove_embeddings = load_glove_embeddings(glove_path)
+    # Install the spaCy model if it's not available
+    install_spacy_model(spacy_model_name)
 
-    # Get the GloVe embedding size dynamically
-    glove_dim = glove_embeddings.vector_size
-    print(f"{glove_dim} should be 300?")
+    # Load spaCy model
+    nlp = spacy.load(spacy_model_name)
     
     # Load the data into a pandas DataFrame
     train_df = pd.read_csv(train_file)
-    test_df = pd.read_csv(test_file)
 
     # Extract all unique labels from the training data
     label_classes = get_unique_labels(train_df)
 
-    # Calculate input size for the MLP model (SpaCy vector + GloVe vector + N-gram features)
-    nlp_dim = nlp.vocab.vectors_length  # Get the SpaCy vector size
-    # Assuming the first entry's N-gram dimension is a good estimate for all (already calculated in process_combined_features)
-    ngram_dim = extract_character_ngrams([train_df['UTTERANCES'][0]]).shape[1]
-    input_size = nlp_dim + glove_dim + ngram_dim ### INPUT SIZE RIGHT HERE
-
-    print(f"Calculated input size: {input_size}")  # Check if this value makes sense
+    # Set input size and output size for the MLP model
+    input_size = nlp.vocab.vectors_length  # Should resolve to 300 for static embeddings
     output_size = len(label_classes)  # Number of unique relations
 
     # Perform K-fold cross-validation on the training set and get the trained model
-    trained_model = perform_kfold_split(train_df, nlp, glove_embeddings, num_folds=num_folds, random_state=random_state, input_size=input_size, output_size=output_size)    
+    trained_model = perform_kfold_split(train_df, nlp, num_folds=num_folds, random_state=random_state, input_size=input_size, output_size=output_size)
 
-    # Step 1: Process the test set using SpaCy and GloVe embeddings
-    X_test_combined = process_combined_features(test_df['UTTERANCES'], nlp, glove_embeddings)
+    # Load the test data into a pandas DataFrame
+    test_df = pd.read_csv(test_file)
+
+    # Process the test set using spaCy to get embeddings
+    X_test = process_spacy_features(test_df['UTTERANCES'], nlp)
 
     # Run the trained model on the test set
-    trained_model.eval()
+    trained_model.eval()  # Ensure the model is in evaluation mode
     with torch.no_grad():
-        test_outputs = trained_model(torch.tensor(X_test_combined, dtype=torch.float32))
+        test_outputs = trained_model(X_test)
         test_predictions = (test_outputs > 0.5).float()  # Binary classification
 
     # Step 5: Convert the predictions to the correct label format and generate the submission
-    submission_labels = generate_submission(test_predictions, test_df['ID'], label_classes)
+    generate_submission(test_predictions, test_df['ID'], label_classes)
 
-    # Calculate predicted counts based on the model's output
-    predicted_class_counts = np.zeros(len(label_classes))
-
-    for labels in submission_labels:
-        for label in labels:
-            if label in label_classes:
-                predicted_class_counts[label_classes.index(label)] += 1
-
-    print("\nPredicted class counts from the model:")
-    i = 1
-    for label, count in zip(label_classes, predicted_class_counts):
-        print(f"{i}: {label}: {int(count)}")
-        i += 1
 
 def generate_submission(predictions, ids, label_classes):
     """
@@ -105,8 +84,6 @@ def generate_submission(predictions, ids, label_classes):
     # Save the DataFrame to a CSV file
     submission_df.to_csv('submission.csv', index=False)
     print("Submission file 'submission.csv' has been created successfully.")
-
-    return submission_labels  # Return the predicted labels for further analysis
 
 if __name__ == "__main__":
     # Example usage: python run.py <train_data> <test_data>

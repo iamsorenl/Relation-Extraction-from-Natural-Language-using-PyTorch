@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
-from utils.combine_process import process_combined_features
+from utils.spacy import process_spacy_features
 from models.mlp_model import MLP
 
 def process_labels(labels):
@@ -14,7 +14,7 @@ def process_labels(labels):
     processed_labels = mlb.fit_transform(labels.str.split())
     return processed_labels, mlb.classes_
 
-def perform_kfold_split(train_df, nlp, glove_embeddings, num_folds, random_state, input_size, output_size):
+def perform_kfold_split(train_df, nlp, num_folds, random_state, input_size, output_size):
     """Perform Multilabel Stratified K-fold cross-validation."""
     
     # Convert CORE RELATIONS to multi-label format
@@ -43,13 +43,10 @@ def perform_kfold_split(train_df, nlp, glove_embeddings, num_folds, random_state
         val_set = train_df.iloc[val_index]
         y_train, y_val = y[train_index], y[val_index]
 
-        # Step 1: Process combined SpaCy and GloVe embeddings for training and validation sets
-        X_train_combined = torch.tensor(process_combined_features(train_set['UTTERANCES'], nlp, glove_embeddings), dtype=torch.float32)
-        X_val_combined = torch.tensor(process_combined_features(val_set['UTTERANCES'], nlp, glove_embeddings), dtype=torch.float32)
+        # Process spaCy embeddings for training and validation sets
+        X_train = process_spacy_features(train_set['UTTERANCES'], nlp)
+        X_val = process_spacy_features(val_set['UTTERANCES'], nlp)
 
-        print(f"X_train_combined shape: {X_train_combined.shape}")
-        print(f"Expected input_size: {input_size}")
-        
         # Convert labels to PyTorch tensors
         y_train_tensor = torch.tensor(y_train, dtype=torch.float32)
         y_val_tensor = torch.tensor(y_val, dtype=torch.float32)
@@ -66,7 +63,7 @@ def perform_kfold_split(train_df, nlp, glove_embeddings, num_folds, random_state
         for epoch in range(num_epochs):
             model.train()
             optimizer.zero_grad()
-            outputs = model(X_train_combined)
+            outputs = model(X_train)
             loss = criterion(outputs, y_train_tensor)
             loss.backward()
             optimizer.step()
@@ -82,7 +79,7 @@ def perform_kfold_split(train_df, nlp, glove_embeddings, num_folds, random_state
         # Evaluate the model on validation set
         model.eval()
         with torch.no_grad():
-            outputs_val = model(X_val_combined)
+            outputs_val = model(X_val)
             y_pred = (outputs_val > 0.5).float()  # Convert logits to binary predictions
 
             # Calculate accuracy and F1-score and validation

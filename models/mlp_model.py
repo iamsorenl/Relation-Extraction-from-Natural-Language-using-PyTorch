@@ -31,7 +31,6 @@ class MLP(nn.Module):
 
         # Leaky ReLU activation function with a negative slope
         self.leaky_relu = nn.LeakyReLU(negative_slope=0.01)
-        #self.leaky_relu = nn.ReLU()
 
         # Dropout layer for regularization (applied after each hidden layer)
         self.dropout = nn.Dropout(self.DROPOUT_PROB)
