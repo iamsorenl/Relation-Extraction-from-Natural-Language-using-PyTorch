@@ -7,11 +7,12 @@ def load_glove_embeddings(model_name):
     Load GloVe embeddings using gensim.downloader.
 
     Parameters:
-    - model_name (str): The name of the pre-trained model to load. Default is 'glove-twitter-300'.
+    - model_name (str): The name of the pre-trained model to load.
     
     Returns:
     - embeddings_dict (gensim KeyedVectors): Gensim's KeyedVectors object with word embeddings.
     """
+    print(api.info()['models'].keys())
     try:
         print(f"Loading GloVe embeddings: {model_name}")
         embeddings_dict = api.load(model_name)

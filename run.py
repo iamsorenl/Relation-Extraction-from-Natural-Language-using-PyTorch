@@ -3,8 +3,10 @@ import spacy
 import pandas as pd
 import numpy as np
 import torch
+from utils.combine_process import process_combined_features
 from utils.glove import load_glove_embeddings
-from utils.spacy import install_spacy_model, process_spacy_features  # Import from utils/spacy.py
+from utils.ngram import extract_character_ngrams
+from utils.spacy import install_spacy_model  # Import from utils/spacy.py
 from utils.kfold import perform_kfold_split  # Import from utils/kfold.py
 
 # Overview of Implementation:
@@ -20,27 +22,14 @@ def get_unique_labels(train_df):
     label_classes = sorted(set(train_df['CORE RELATIONS'].str.split().explode().unique()))
     return label_classes
 
-# Function to combine SpaCy and GloVe embeddings
-def get_combined_embedding(text_data, nlp, glove_embeddings, glove_dim=300):
-    """Combine SpaCy and GloVe embeddings for a list of words."""
-    combined_embeddings = []
-    
-    for word in text_data:
-        spacy_vector = nlp(word).vector
-        glove_vector = glove_embeddings.get(word, np.zeros(glove_dim))
-        combined_vector = np.concatenate((spacy_vector, glove_vector))
-        combined_embeddings.append(combined_vector)
-
-    return torch.tensor(np.array(combined_embeddings))
-
-def main(train_file, test_file, num_folds=5, random_state=42, spacy_model_name='en_core_web_md', glove_path='glove-twitter-300'):
+def main(train_file, test_file, num_folds=5, random_state=42, spacy_model_name='en_core_web_md', glove_path='glove-wiki-gigaword-300'):
 
     # Install SpaCy model and load GloVe embeddings or load them if they are already installed
     nlp = install_spacy_model(spacy_model_name)
     glove_embeddings = load_glove_embeddings(glove_path)
 
     # Get the GloVe embedding size dynamically
-    glove_dim = len(next(iter(glove_embeddings.values())))
+    glove_dim = glove_embeddings.vector_size
     print(f"{glove_dim} should be 300?")
     
     # Load the data into a pandas DataFrame
@@ -50,22 +39,25 @@ def main(train_file, test_file, num_folds=5, random_state=42, spacy_model_name='
     # Extract all unique labels from the training data
     label_classes = get_unique_labels(train_df)
 
-    # Set input size and output size for the MLP model
-    input_size = nlp.vocab.vectors_length  + glove_dim  # Combined SpaCy and GloVe dimensions
+    # Calculate input size for the MLP model (SpaCy vector + GloVe vector + N-gram features)
+    nlp_dim = nlp.vocab.vectors_length  # Get the SpaCy vector size
+    # Assuming the first entry's N-gram dimension is a good estimate for all (already calculated in process_combined_features)
+    ngram_dim = extract_character_ngrams([train_df['UTTERANCES'][0]]).shape[1]
+    input_size = nlp_dim + glove_dim + ngram_dim ### INPUT SIZE RIGHT HERE
+
+    print(f"Calculated input size: {input_size}")  # Check if this value makes sense
     output_size = len(label_classes)  # Number of unique relations
 
-
-    
     # Perform K-fold cross-validation on the training set and get the trained model
-    trained_model = perform_kfold_split(train_df, nlp, num_folds=num_folds, random_state=random_state, input_size=input_size, output_size=output_size)    
+    trained_model = perform_kfold_split(train_df, nlp, glove_embeddings, num_folds=num_folds, random_state=random_state, input_size=input_size, output_size=output_size)    
 
-    # Process the test set using spaCy to get embeddings
-    X_test = process_spacy_features(test_df['UTTERANCES'], nlp)
+    # Step 1: Process the test set using SpaCy and GloVe embeddings
+    X_test_combined = process_combined_features(test_df['UTTERANCES'], nlp, glove_embeddings)
 
     # Run the trained model on the test set
-    trained_model.eval()  # Ensure the model is in evaluation mode
+    trained_model.eval()
     with torch.no_grad():
-        test_outputs = trained_model(X_test)
+        test_outputs = trained_model(torch.tensor(X_test_combined, dtype=torch.float32))
         test_predictions = (test_outputs > 0.5).float()  # Binary classification
 
     # Step 5: Convert the predictions to the correct label format and generate the submission
