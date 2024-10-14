@@ -59,7 +59,7 @@ def perform_kfold_split(train_df, nlp, num_folds, random_state, input_size, outp
         optimizer = optim.Adam(model.parameters(), lr=0.01)
 
         # Train the model
-        num_epochs = 100
+        num_epochs = 300
         for epoch in range(num_epochs):
             model.train()
             optimizer.zero_grad()

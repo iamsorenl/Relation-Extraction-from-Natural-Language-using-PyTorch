@@ -3,7 +3,6 @@ import spacy
 import pandas as pd
 import numpy as np
 import torch
-from utils.plot_distribution import plot_class_distributions
 from utils.spacy import install_spacy_model, process_spacy_features  # Import from utils/spacy.py
 from utils.kfold import perform_kfold_split  # Import from utils/kfold.py
 
@@ -20,7 +19,7 @@ def get_unique_labels(train_df):
     label_classes = sorted(set(train_df['CORE RELATIONS'].str.split().explode().unique()))
     return label_classes
 
-def main(train_file, test_file, num_folds=2, random_state=42, spacy_model_name='en_core_web_md'):
+def main(train_file, test_file, num_folds=5, random_state=42, spacy_model_name='en_core_web_md'):
 
     # Install the spaCy model if it's not available
     install_spacy_model(spacy_model_name)
@@ -35,8 +34,8 @@ def main(train_file, test_file, num_folds=2, random_state=42, spacy_model_name='
     label_classes = get_unique_labels(train_df)
 
     # Set input size and output size for the MLP model
-    input_size = nlp.vocab.vectors_length # Should resolve to 300 for static embeddings
-    output_size = len(train_df['CORE RELATIONS'].str.split().explode().unique())  # Number of unique relations
+    input_size = nlp.vocab.vectors_length  # Should resolve to 300 for static embeddings
+    output_size = len(label_classes)  # Number of unique relations
 
     # Perform K-fold cross-validation on the training set and get the trained model
     trained_model = perform_kfold_split(train_df, nlp, num_folds=num_folds, random_state=random_state, input_size=input_size, output_size=output_size)
@@ -56,7 +55,7 @@ def main(train_file, test_file, num_folds=2, random_state=42, spacy_model_name='
     # Step 5: Convert the predictions to the correct label format and generate the submission
     submission_labels = generate_submission(test_predictions, test_df['ID'], label_classes)
 
-    # Define expected distribution (you need to adjust this if necessary)
+    # Define expected distribution ratios (this can be adjusted based on prior knowledge)
     expected_distribution = [
         0.01,  # person.date_of_birth
         0.015, # gr.amount
@@ -78,10 +77,27 @@ def main(train_file, test_file, num_folds=2, random_state=42, spacy_model_name='
         0.145  # none
     ]
 
-    # Plot predicted vs expected class distribution
-    plot_class_distributions(test_predictions, submission_labels, label_classes, expected_distribution)
+    # Calculate total number of predictions made by the model
+    total_predictions = len(test_df)
 
+    # Calculate expected counts based on the distribution ratios
+    expected_counts = [int(ratio * total_predictions) for ratio in expected_distribution]
 
+    print("\nExpected class counts based on the distribution ratios:")
+    for label, count in zip(label_classes, expected_counts):
+        print(f"{label}: {count}")
+
+    # Calculate predicted counts based on the model's output
+    predicted_class_counts = np.zeros(len(label_classes))
+
+    for labels in submission_labels:
+        for label in labels:
+            if label in label_classes:
+                predicted_class_counts[label_classes.index(label)] += 1
+
+    print("\nPredicted class counts from the model:")
+    for label, count in zip(label_classes, predicted_class_counts):
+        print(f"{label}: {int(count)}")
 
 def generate_submission(predictions, ids, label_classes):
     """
@@ -96,14 +112,14 @@ def generate_submission(predictions, ids, label_classes):
     pred_array = predictions.cpu().numpy()
 
     submission_data = []
-    submission_labels = []  ##### DELETE LATER
+    submission_labels = []
 
     # For each prediction and ID, create the CORE RELATIONS string based on positive labels
     for pred, id_val in zip(pred_array, ids):
         # Get the labels corresponding to predicted 1's, and sort them alphabetically
         relations = [label_classes[i] for i in range(len(pred)) if pred[i] == 1]
         submission_data.append({'ID': id_val, 'CORE RELATIONS': ' '.join(sorted(relations))})
-        submission_labels.append(relations)  ##### DELETE LATER
+        submission_labels.append(relations)
 
     # Create a DataFrame for the submission
     submission_df = pd.DataFrame(submission_data)
