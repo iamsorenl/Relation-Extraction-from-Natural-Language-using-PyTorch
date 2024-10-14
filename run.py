@@ -27,8 +27,46 @@ def main(train_file, test_file, num_folds=5, random_state=42, spacy_model_name='
     # Load spaCy model
     nlp = spacy.load(spacy_model_name)
     
+    ######
     # Load the data into a pandas DataFrame
     train_df = pd.read_csv(train_file)
+
+    # Print the size of the utterances and core relations columns
+    print(f"Number of utterances: {train_df['UTTERANCES'].size}")
+    print(f"Number of core relations entries: {train_df['CORE RELATIONS'].size}")
+
+    # Split the core relations into individual values (since they are in a comma-separated format)
+    train_df_split = train_df['CORE RELATIONS'].str.split(',')
+
+    # Count the unique core relations
+    unique_core_relations = set([relation.strip() for relations in train_df_split.dropna() for relation in relations])
+    print(f"Number of unique core relations: {len(unique_core_relations)}")
+
+    # Calculate frequency of each core relation
+    relation_counts = {}
+    for relations in train_df_split.dropna():
+        for relation in relations:
+            relation = relation.strip()
+            if relation in relation_counts:
+                relation_counts[relation] += 1
+            else:
+                relation_counts[relation] = 1
+
+    # Calculate total utterances for percentage calculation
+    total_utterances = train_df['UTTERANCES'].size
+
+    # Get most and least frequent relations
+    most_frequent_relation = max(relation_counts, key=relation_counts.get)
+    least_frequent_relation = min(relation_counts, key=relation_counts.get)
+
+    # Calculate percentages
+    most_frequent_percentage = (relation_counts[most_frequent_relation] / total_utterances) * 100
+    least_frequent_percentage = (relation_counts[least_frequent_relation] / total_utterances) * 100
+
+    # Print results
+    print(f"Most frequent core relation: {most_frequent_relation}, appears in {most_frequent_percentage:.2f}% of utterances.")
+    print(f"Least frequent core relation: {least_frequent_relation}, appears in {least_frequent_percentage:.4f}% of utterances.")
+    ######
 
     # Extract all unique labels from the training data
     label_classes = get_unique_labels(train_df)
@@ -54,38 +92,6 @@ def main(train_file, test_file, num_folds=5, random_state=42, spacy_model_name='
 
     # Step 5: Convert the predictions to the correct label format and generate the submission
     submission_labels = generate_submission(test_predictions, test_df['ID'], label_classes)
-
-    # Define expected distribution ratios (this can be adjusted based on prior knowledge)
-    expected_distribution = [
-        0.01,  # person.date_of_birth
-        0.015, # gr.amount
-        0.02,  # actor.gender
-        0.025, # movie.locations
-        0.03,  # movie.starring.character
-        0.04,  # movie.production_companies
-        0.045, # movie.subjects
-        0.05,  # movie.estimated_budget
-        0.06,  # movie.gross_revenue
-        0.07,  # movie.genre
-        0.08,  # movie.rating
-        0.09,  # movie.produced_by
-        0.1,   # movie.initial_release_date
-        0.11,  # movie.language
-        0.12,  # movie.country
-        0.13,  # movie.directed_by
-        0.14,  # movie.starring.actor
-        0.145  # none
-    ]
-
-    # Calculate total number of predictions made by the model
-    total_predictions = len(test_df)
-
-    # Calculate expected counts based on the distribution ratios
-    expected_counts = [int(ratio * total_predictions) for ratio in expected_distribution]
-
-    print("\nExpected class counts based on the distribution ratios:")
-    for label, count in zip(label_classes, expected_counts):
-        print(f"{label}: {count}")
 
     # Calculate predicted counts based on the model's output
     predicted_class_counts = np.zeros(len(label_classes))
