@@ -2,6 +2,8 @@ import sys
 import spacy
 import pandas as pd
 import numpy as np
+import torch
+from utils.plot_distribution import plot_class_distributions
 from utils.spacy import install_spacy_model, process_spacy_features  # Import from utils/spacy.py
 from utils.kfold import perform_kfold_split  # Import from utils/kfold.py
 
@@ -13,19 +15,24 @@ from utils.kfold import perform_kfold_split  # Import from utils/kfold.py
 # 5. Additional features such as POS tags and Named Entities are extracted.
 # 6. Evaluation metrics such as Accuracy and F1-Score are calculated for each fold.
 
-def main(train_file, test_file, num_folds=5, random_state=42, spacy_model_name='en_core_web_md'):
+def get_unique_labels(train_df):
+    """Extracts unique labels from CORE RELATIONS column."""
+    label_classes = sorted(set(train_df['CORE RELATIONS'].str.split().explode().unique()))
+    return label_classes
+
+def main(train_file, test_file, num_folds=2, random_state=42, spacy_model_name='en_core_web_md'):
 
     # Install the spaCy model if it's not available
     install_spacy_model(spacy_model_name)
 
     # Load spaCy model
     nlp = spacy.load(spacy_model_name)
-
-    # Debug: Check the pipeline components
-    print(f"Pipeline components: {nlp.pipe_names}")
     
     # Load the data into a pandas DataFrame
     train_df = pd.read_csv(train_file)
+
+    # Extract all unique labels from the training data
+    label_classes = get_unique_labels(train_df)
 
     # Set input size and output size for the MLP model
     input_size = nlp.vocab.vectors_length # Should resolve to 300 for static embeddings
@@ -34,6 +41,78 @@ def main(train_file, test_file, num_folds=5, random_state=42, spacy_model_name='
     # Perform K-fold cross-validation on the training set and get the trained model
     trained_model = perform_kfold_split(train_df, nlp, num_folds=num_folds, random_state=random_state, input_size=input_size, output_size=output_size)
 
+    # Load the test data into a pandas DataFrame
+    test_df = pd.read_csv(test_file)
+
+    # Process the test set using spaCy to get embeddings
+    X_test = process_spacy_features(test_df['UTTERANCES'], nlp)
+
+    # Run the trained model on the test set
+    trained_model.eval()  # Ensure the model is in evaluation mode
+    with torch.no_grad():
+        test_outputs = trained_model(X_test)
+        test_predictions = (test_outputs > 0.5).float()  # Binary classification
+
+    # Step 5: Convert the predictions to the correct label format and generate the submission
+    submission_labels = generate_submission(test_predictions, test_df['ID'], label_classes)
+
+    # Define expected distribution (you need to adjust this if necessary)
+    expected_distribution = [
+        0.01,  # person.date_of_birth
+        0.015, # gr.amount
+        0.02,  # actor.gender
+        0.025, # movie.locations
+        0.03,  # movie.starring.character
+        0.04,  # movie.production_companies
+        0.045, # movie.subjects
+        0.05,  # movie.estimated_budget
+        0.06,  # movie.gross_revenue
+        0.07,  # movie.genre
+        0.08,  # movie.rating
+        0.09,  # movie.produced_by
+        0.1,   # movie.initial_release_date
+        0.11,  # movie.language
+        0.12,  # movie.country
+        0.13,  # movie.directed_by
+        0.14,  # movie.starring.actor
+        0.145  # none
+    ]
+
+    # Plot predicted vs expected class distribution
+    plot_class_distributions(test_predictions, submission_labels, label_classes, expected_distribution)
+
+
+
+def generate_submission(predictions, ids, label_classes):
+    """
+    Generate the submission CSV file and return predicted labels.
+    
+    Parameters:
+    - predictions: Tensor of model predictions (binary format)
+    - ids: IDs from the test set to include in the submission
+    - label_classes: List of unique class labels
+    """
+    # Convert the predictions tensor to a NumPy array
+    pred_array = predictions.cpu().numpy()
+
+    submission_data = []
+    submission_labels = []  ##### DELETE LATER
+
+    # For each prediction and ID, create the CORE RELATIONS string based on positive labels
+    for pred, id_val in zip(pred_array, ids):
+        # Get the labels corresponding to predicted 1's, and sort them alphabetically
+        relations = [label_classes[i] for i in range(len(pred)) if pred[i] == 1]
+        submission_data.append({'ID': id_val, 'CORE RELATIONS': ' '.join(sorted(relations))})
+        submission_labels.append(relations)  ##### DELETE LATER
+
+    # Create a DataFrame for the submission
+    submission_df = pd.DataFrame(submission_data)
+
+    # Save the DataFrame to a CSV file
+    submission_df.to_csv('submission.csv', index=False)
+    print("Submission file 'submission.csv' has been created successfully.")
+
+    return submission_labels  # Return the predicted labels for further analysis
 
 if __name__ == "__main__":
     # Example usage: python run.py <train_data> <test_data>
