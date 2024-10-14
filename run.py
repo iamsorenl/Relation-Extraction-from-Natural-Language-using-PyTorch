@@ -55,38 +55,6 @@ def main(train_file, test_file, num_folds=5, random_state=42, spacy_model_name='
     # Step 5: Convert the predictions to the correct label format and generate the submission
     submission_labels = generate_submission(test_predictions, test_df['ID'], label_classes)
 
-    # Define expected distribution ratios (this can be adjusted based on prior knowledge)
-    expected_distribution = [
-        0.01,  # person.date_of_birth
-        0.015, # gr.amount
-        0.02,  # actor.gender
-        0.025, # movie.locations
-        0.03,  # movie.starring.character
-        0.04,  # movie.production_companies
-        0.045, # movie.subjects
-        0.05,  # movie.estimated_budget
-        0.06,  # movie.gross_revenue
-        0.07,  # movie.genre
-        0.08,  # movie.rating
-        0.09,  # movie.produced_by
-        0.1,   # movie.initial_release_date
-        0.11,  # movie.language
-        0.12,  # movie.country
-        0.13,  # movie.directed_by
-        0.14,  # movie.starring.actor
-        0.145  # none
-    ]
-
-    # Calculate total number of predictions made by the model
-    total_predictions = len(test_df)
-
-    # Calculate expected counts based on the distribution ratios
-    expected_counts = [int(ratio * total_predictions) for ratio in expected_distribution]
-
-    print("\nExpected class counts based on the distribution ratios:")
-    for label, count in zip(label_classes, expected_counts):
-        print(f"{label}: {count}")
-
     # Calculate predicted counts based on the model's output
     predicted_class_counts = np.zeros(len(label_classes))
 
@@ -96,8 +64,10 @@ def main(train_file, test_file, num_folds=5, random_state=42, spacy_model_name='
                 predicted_class_counts[label_classes.index(label)] += 1
 
     print("\nPredicted class counts from the model:")
+    i = 1
     for label, count in zip(label_classes, predicted_class_counts):
-        print(f"{label}: {int(count)}")
+        print(f"{i}: {label}: {int(count)}")
+        i += 1
 
 def generate_submission(predictions, ids, label_classes):
     """
