@@ -3,16 +3,17 @@ import spacy
 import pandas as pd
 import numpy as np
 import torch
-from utils.spacy import install_spacy_model, process_spacy_features  # Import from utils/spacy.py
-from utils.kfold import perform_kfold_split  # Import from utils/kfold.py
+from utils.spacy import install_spacy_model, process_spacy_features
+from utils.kfold import perform_kfold_split
 
 # Overview of Implementation:
-# 1. The input CSV files are loaded into Pandas DataFrames.
+# 1. The input CSV files (training and test sets) are loaded into Pandas DataFrames.
 # 2. Stratified K-fold cross-validation is used to create balanced training and validation splits.
 # 3. The script uses spaCy for text processing and feature extraction.
-# 4. Mean-pooling is applied to generate sentence-level embeddings using the word vectors from spaCy.
-# 5. Additional features such as POS tags and Named Entities are extracted.
-# 6. Evaluation metrics such as Accuracy and F1-Score are calculated for each fold.
+# 4. Mean-pooling is applied to generate sentence-level embeddings from word vectors using the pre-trained spaCy model.
+# 5. The Multi-Layer Perceptron (MLP) model is trained on these embeddings using K-fold cross-validation.
+# 6. After training, the model is evaluated on the test set to generate predictions for core relations.
+# 7. The script outputs a CSV file in the required format for submission, containing the predicted core relations for the test data.
 
 def get_unique_labels(train_df):
     """Extracts unique labels from CORE RELATIONS column."""

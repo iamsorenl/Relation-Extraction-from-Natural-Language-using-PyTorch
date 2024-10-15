@@ -2,6 +2,7 @@ import spacy
 import subprocess
 import torch
 import numpy as np
+import sys
 
 def install_spacy_model(spacy_model_name):
     """Install spaCy model if it's not already available."""

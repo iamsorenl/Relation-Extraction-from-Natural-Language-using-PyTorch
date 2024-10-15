@@ -20,13 +20,13 @@ class MLP(nn.Module):
         # First fully connected layer (input to hidden layer 1)
         self.layer1 = nn.Linear(input_size, self.HIDDEN_SIZE)
 
-        ###change here: Add batch normalization after the first hidden layer
+        # Add batch normalization after the first hidden layer
         self.batch_norm1 = nn.BatchNorm1d(self.HIDDEN_SIZE)
 
         # Second fully connected layer (hidden layer 1 to hidden layer 2)
         self.layer2 = nn.Linear(self.HIDDEN_SIZE, self.HIDDEN_SIZE)
 
-        ###change here: Add batch normalization after the second hidden layer
+        # Add batch normalization after the second hidden layer
         self.batch_norm2 = nn.BatchNorm1d(self.HIDDEN_SIZE)
 
         # Leaky ReLU activation function with a negative slope
@@ -48,27 +48,27 @@ class MLP(nn.Module):
         Returns:
         - torch.Tensor, the output tensor with shape (batch_size, output_size)
         """
-        # Step 1: Apply the first linear layer (input to hidden layer 1)
+        # Apply the first linear layer (input to hidden layer 1)
         x = self.layer1(x)
 
-        ###change here: Apply batch normalization and activation function
+        # Apply batch normalization and activation function
         x = self.batch_norm1(x)
         x = self.leaky_relu(x)
 
-        ###change here: Apply dropout for regularization
+        # Apply dropout for regularization
         x = self.dropout(x)
 
-        # Step 2: Apply the second linear layer (hidden layer 1 to hidden layer 2)
+        # Apply the second linear layer (hidden layer 1 to hidden layer 2)
         x = self.layer2(x)
 
-        ###change here: Apply batch normalization and activation function
+        # Apply batch normalization and activation function
         x = self.batch_norm2(x)
         x = self.leaky_relu(x)
 
-        ###change here: Apply dropout for regularization
+        # Apply dropout for regularization
         x = self.dropout(x)
 
-        # Step 3: Apply the output layer (hidden layer 2 to output)
+        # Apply the output layer (hidden layer 2 to output)
         x = self.output(x)
 
         # Return raw logits (without activation, needed for MultiLabelSoftMarginLoss)

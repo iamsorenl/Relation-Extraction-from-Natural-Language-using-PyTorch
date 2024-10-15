@@ -12,13 +12,13 @@ def process_labels(labels):
     """Converts CORE RELATIONS into multi-hot encoding for multi-label classification."""
     mlb = MultiLabelBinarizer()
     processed_labels = mlb.fit_transform(labels.str.split())
-    return processed_labels, mlb.classes_
+    return processed_labels
 
 def perform_kfold_split(train_df, nlp, num_folds, random_state, input_size, output_size):
     """Perform Multilabel Stratified K-fold cross-validation."""
     
     # Convert CORE RELATIONS to multi-label format
-    y, label_classes = process_labels(train_df['CORE RELATIONS'])
+    y = process_labels(train_df['CORE RELATIONS'])
 
     # Initialize the Multilabel Stratified K-Fold object
     mskf = MultilabelStratifiedKFold(n_splits=num_folds, shuffle=True, random_state=random_state)
@@ -31,8 +31,9 @@ def perform_kfold_split(train_df, nlp, num_folds, random_state, input_size, outp
     best_weights = None
 
     # Lists to store accuracy and F1-score for each fold
-    total_accuracy = 0
-    total_f1 = 0
+    accuracies = []
+    f1_scores = []
+    val_losses = []
 
     # Perform the K-Fold split
     for train_index, val_index in mskf.split(train_df, y):
@@ -88,22 +89,30 @@ def perform_kfold_split(train_df, nlp, num_folds, random_state, input_size, outp
             val_loss = criterion(outputs_val, y_val_tensor)
 
             print(f"Fold {fold_idx} - Accuracy: {accuracy:.4f}, F1-Score: {f1:.4f}, Validation Loss: {val_loss.item():.4f}")
-            
-            total_accuracy += accuracy
-            total_f1 += f1
+
+            val_losses.append(val_loss)
+            accuracies.append(accuracy)
+            f1_scores.append(f1)
         
         # After each fold, restore the best weights
         if best_weights is not None:
             model.load_state_dict(best_weights)
 
-        # After the last fold, return the trained model (you could also store models from each fold)
-        #if fold_idx == num_folds:
+        # After the last fold, return the trained model
         trained_model = model
 
         fold_idx += 1
 
     # Print average scores across all folds
-    print(f"\nAverage Accuracy: {total_accuracy / num_folds:.4f}")
-    print(f"Average F1-Score: {total_f1 / num_folds:.4f}")
+    mean_val_losses = np.mean(val_losses)
+    std_val_losses = np.std(val_losses)
+    mean_accuracy = np.mean(accuracies)
+    mean_f1 = np.mean(f1_scores)
+    std_accuracy = np.std(accuracies)
+    std_f1 = np.std(f1_scores)
+
+    print(f"\nAverage Accuracy: {mean_accuracy:.4f} (±{std_accuracy:.4f})")
+    print(f"Average F1-Score: {mean_f1:.4f} (±{std_f1:.4f})")
+    print(f"Average Val Loss: {mean_val_losses:.4f} (±{std_val_losses:.4f})")
 
     return trained_model
