@@ -23,6 +23,6 @@ def process_spacy_features(text_data, nlp):
         embeddings.append(doc.vector)  # Use spaCy's mean-pooled vector for each document
 
     # Convert list of numpy arrays to a single numpy array before creating PyTorch tensor
-    embeddings = torch.tensor(np.array(embeddings))  # Convert list of numpy arrays to a single tensor
+    embeddings = torch.tensor(np.array(embeddings), dtype=torch.float32)
 
     return embeddings
