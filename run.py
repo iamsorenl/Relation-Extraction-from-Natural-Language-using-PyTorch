@@ -3,8 +3,8 @@ import spacy
 import pandas as pd
 import numpy as np
 import torch
-from utils.spacy import install_spacy_model, process_spacy_features
-from utils.kfold import perform_kfold_split
+from utils.spacy import install_spacy_model, process_spacy_features  # Import from utils/spacy.py
+from utils.kfold import perform_kfold_split  # Import from utils/kfold.py
 
 # Overview of Implementation:
 # 1. The input CSV files (training and test sets) are loaded into Pandas DataFrames.
@@ -13,14 +13,14 @@ from utils.kfold import perform_kfold_split
 # 4. Mean-pooling is applied to generate sentence-level embeddings from word vectors using the pre-trained spaCy model.
 # 5. The Multi-Layer Perceptron (MLP) model is trained on these embeddings using K-fold cross-validation.
 # 6. After training, the model is evaluated on the test set to generate predictions for core relations.
-# 7. The script outputs a CSV file in the required format for submission, containing the predicted core relations for the test data.
+# 7. The script writes predictions to the provided submission CSV file containing predicted core relations for the test data.
 
 def get_unique_labels(train_df):
     """Extracts unique labels from CORE RELATIONS column."""
     label_classes = sorted(set(train_df['CORE RELATIONS'].str.split().explode().unique()))
     return label_classes
 
-def main(train_file, test_file, num_folds=5, random_state=42, spacy_model_name='en_core_web_md'):
+def main(train_file, test_file, submission_file, num_folds=5, random_state=42, spacy_model_name='en_core_web_md'):
 
     # Install the spaCy model if it's not available
     install_spacy_model(spacy_model_name)
@@ -54,17 +54,18 @@ def main(train_file, test_file, num_folds=5, random_state=42, spacy_model_name='
         test_predictions = (test_outputs > 0.5).float()  # Binary classification
 
     # Step 5: Convert the predictions to the correct label format and generate the submission
-    generate_submission(test_predictions, test_df['ID'], label_classes)
+    generate_submission(test_predictions, test_df['ID'], label_classes, submission_file)
 
 
-def generate_submission(predictions, ids, label_classes):
+def generate_submission(predictions, ids, label_classes, submission_file):
     """
-    Generate the submission CSV file and return predicted labels.
+    Write predictions to the provided submission file.
     
     Parameters:
     - predictions: Tensor of model predictions (binary format)
     - ids: IDs from the test set to include in the submission
     - label_classes: List of unique class labels
+    - submission_file: Path to the provided submission file where results should be saved
     """
     # Convert the predictions tensor to a NumPy array
     pred_array = predictions.cpu().numpy()
@@ -79,19 +80,22 @@ def generate_submission(predictions, ids, label_classes):
         submission_data.append({'ID': id_val, 'CORE RELATIONS': ' '.join(sorted(relations))})
         submission_labels.append(relations)
 
-    # Create a DataFrame for the submission
-    submission_df = pd.DataFrame(submission_data)
+    # Load the provided submission CSV
+    submission_df = pd.read_csv(submission_file)
 
-    # Save the DataFrame to a CSV file
-    submission_df.to_csv('submission.csv', index=False)
-    print("Submission file 'submission.csv' has been created successfully.")
+    # Update the 'CORE RELATIONS' column with the generated predictions
+    submission_df['CORE RELATIONS'] = [row['CORE RELATIONS'] for row in submission_data]
+
+    # Save the updated DataFrame back to the provided file
+    submission_df.to_csv(submission_file, index=False)
+    print(f"Submission file '{submission_file}' has been updated successfully.")
 
 if __name__ == "__main__":
-    # Example usage: python run.py <train_data> <test_data>
-    if len(sys.argv) != 3:
-        print("Usage: python run.py <train_data> <test_data>")
+    if len(sys.argv) != 4:
+        print("Usage: python run.py <train_data> <test_data> <submission_file>")
         sys.exit(1)
 
     train_file = sys.argv[1]
     test_file = sys.argv[2]
-    main(train_file, test_file)
+    submission_file = sys.argv[3]
+    main(train_file, test_file, submission_file)
