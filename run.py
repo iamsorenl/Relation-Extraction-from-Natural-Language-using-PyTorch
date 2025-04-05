@@ -53,7 +53,7 @@ def main(train_file, test_file, submission_file, num_folds=5, random_state=42, s
         test_outputs = trained_model(X_test)
         test_predictions = (test_outputs > 0.5).float()  # Binary classification
 
-    # Step 5: Convert the predictions to the correct label format and generate the submission
+    # Convert the predictions to the correct label format and generate the submission
     generate_submission(test_predictions, test_df['ID'], label_classes, submission_file)
 
 
